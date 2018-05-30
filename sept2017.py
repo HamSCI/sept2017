@@ -6,16 +6,8 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-mpl.use('Agg')
-from matplotlib import pyplot as plt
 
 import mysql.connector
-
-import tqdm
-import seqp
-from seqp import calcSun
-
 
 def load_data():
     sDate       = datetime.datetime(2017,9,1)
