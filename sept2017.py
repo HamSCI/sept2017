@@ -9,6 +9,8 @@ import pandas as pd
 
 import mysql.connector
 
+from datetime import timedelta, date
+
 def load_data():
     sDate       = datetime.datetime(2017,9,1)
     eDate       = datetime.datetime(2017,10,1)
@@ -44,18 +46,24 @@ def load_data():
     #| rx_loc_source | char(1)             | YES  |     | NULL    |       |
     #+---------------+---------------------+------+-----+---------+-------+
 
-    qry     = "SELECT * FROM radio_spots WHERE occurred BETWEEN '{!s}' AND '{!s}';".format(sDate,eDate)
-               
-    crsr    = db.cursor()
-    crsr.execute(qry)
-    results = crsr.fetchall()
-    crsr.close()
+    for dt in daterange(sDate, eDate):
+        yield dt, get_df_between_times(db, dt, dt + timedelta(days=1))
 
-    data_list   = []
-    for result in results:
-        import ipdb; ipdb.set_trace()
+def get_df_between_times(db, start, finish):
+    """ Grab all radio spots between start and finish as a dataframe """
+    qry = "SELECT * FROM radio_spots WHERE occurred BETWEEN %(dstart)s AND %(dfinish)s"
+    df = pd.read_sql(qry, db, params = {"dstart": start, "dfinish": finish})
+    return df
+
+def daterange(start_date, end_date):
+    """ Get every date in the range start_date -> end_date (exc) """
+    for n in range(int ((end_date - start_date).days)):
+        yield start_date + timedelta(n)
 
 if __name__ == '__main__':
 
-    df = load_data()
-
+    # Save a single CSV per day in the csvs/ directory
+    for dt, df in load_data():
+        print("Saving", dt)
+        df.to_csv("csvs/{}.csv.bz2".format(dt.strftime("%Y-%m-%d")),index=False,compression="bz2")
+        print("Saved", dt)
