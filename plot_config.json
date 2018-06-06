@@ -1,0 +1,27 @@
+// NOTE: This is a WIP config system for plots so that
+// scientists don't need to modify code in order to
+// change plot parameters.  It is not yet implemented
+
+{
+  "sources": [
+    {
+      "name": ""
+    }
+  ],
+  "figure": {
+    "width":  100,
+    "height": 100,
+    "dpi":    100
+  },
+  "map": {
+    "key": ""
+  }
+  "histograms": {
+    "ut_hours": {
+      "key":      "ut_hrs",
+      "label":    "UT Hours",
+      "lim":      [0, 24],
+      "bin_size": 10/60
+    }
+  }
+}
