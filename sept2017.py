@@ -11,15 +11,8 @@ import mysql.connector
 
 from datetime import timedelta, date
 
-def load_data():
-    sDate       = datetime.datetime(2017,9,1)
-    eDate       = datetime.datetime(2017,10,1)
-
-    user        = 'hamsci'
-    password    = 'hamsci'
-    host        = 'localhost'
-    database    = 'spots1a'
-    db          = mysql.connector.connect(user=user,password=password,host=host,database=database,buffered=True)
+def load_data(db, start, finish):
+""" Loads in data from the db as dated dataframes from start to finish (exc) """
 
     #MariaDB [spots1a]> describe radio_spots;
     #+---------------+---------------------+------+-----+---------+-------+
@@ -46,7 +39,7 @@ def load_data():
     #| rx_loc_source | char(1)             | YES  |     | NULL    |       |
     #+---------------+---------------------+------+-----+---------+-------+
 
-    for dt in daterange(sDate, eDate):
+    for dt in daterange(start, finish):
         yield dt, get_df_between_times(db, dt, dt + timedelta(days=1))
 
 def get_df_between_times(db, start, finish):
@@ -62,8 +55,17 @@ def daterange(start_date, end_date):
 
 if __name__ == '__main__':
 
+    sDate       = datetime.datetime(2017,9,1)
+    eDate       = datetime.datetime(2017,10,1)
+
+    user        = 'hamsci'
+    password    = 'hamsci'
+    host        = 'localhost'
+    database    = 'spots1a'
+    db          = mysql.connector.connect(user=user,password=password,host=host,database=database,buffered=True)
+
     # Save a single CSV per day in the csvs/ directory
-    for dt, df in load_data():
+    for dt, df in load_data(db, sDate, eDate):
         print("Saving", dt)
         df.to_csv("csvs/{}.csv.bz2".format(dt.strftime("%Y-%m-%d")),index=False,compression="bz2")
         print("Saved", dt)
