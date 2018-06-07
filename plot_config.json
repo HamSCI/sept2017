@@ -15,13 +15,13 @@
   },
   "map": {
     "key": ""
-  }
+  },
   "histograms": {
     "ut_hours": {
       "key":      "ut_hrs",
       "label":    "UT Hours",
       "lim":      [0, 24],
-      "bin_size": 10/60
+      "bin_size": 0.16666666666
     }
   }
 }
