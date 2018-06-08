@@ -9,7 +9,7 @@ import pandas as pd
 
 import mysql.connector
 
-from datetime import timedelta, date
+from timeutils import daterange
 
 def load_data(db, start, finish):
 """ Loads in data from the db as dated dataframes from start to finish (exc) """
@@ -47,11 +47,6 @@ def get_df_between_times(db, start, finish):
     qry = "SELECT * FROM radio_spots WHERE occurred BETWEEN %(dstart)s AND %(dfinish)s"
     df = pd.read_sql(qry, db, params = {"dstart": start, "dfinish": finish})
     return df
-
-def daterange(start_date, end_date):
-    """ Get every date in the range start_date -> end_date (exc) """
-    for n in range(int ((end_date - start_date).days)):
-        yield start_date + timedelta(n)
 
 if __name__ == '__main__':
 
