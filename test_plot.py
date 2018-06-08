@@ -22,8 +22,6 @@ sources = {
     2: "RBN"
 }
 
-def plot_hist(ax, df, name):
-    pass
 
 def plot_map(ax, df, name):
     """ Make a world-map plot of the dataframe """
