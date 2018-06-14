@@ -2,6 +2,7 @@
 import datetime
 import numpy as np
 import pandas as pd
+import bz2
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -63,31 +64,52 @@ prmd['B_AVG']   = tmp
 #:archiving_agency = "DOC/NOAA/NESDIS/NCEI"
 #:NOAA_scaling_factors = "The XRS data for GOES 8-15 include NOAA scaling factors which must be removed to get observed fluxes.  To remove these factors, divide the short channel fluxes (A_FLUX) by 0.85 and divide the long channel fluxes (B_FLUX) by 0.7." 
 
-def load_goes_xrs(src = 'data/goes15_xrs/g15_xrs_1m_20170901_20170930.csv'):
-    with open(src) as fl:
-        lines   = fl.readlines()
-
+def lines_to_df(lines,key):
     data        = False
     data_lines  = []
     for line in lines:
         if data:
-            spl = line[:-1].split(',') 
+            if line == '':
+                break
+
+            spl = line.split(',') 
             data_lines.append(spl)
 
-        if 'data:' in line: data = True
+        if key in line: data = True
 
     cols        = data_lines[0]
     data_lines  = data_lines[1:]
 
-    df  = pd.DataFrame(data_lines,columns=cols)
-    df['datetime']  = pd.to_datetime(df['time_tag'])
-    del df['time_tag']
-    df  = df.set_index('datetime')
+    # Create dataframe and convert date string to datetime.
+    dt_key          = cols[0]
+    df              = pd.DataFrame(data_lines,columns=cols)
+    df['datetime']  = pd.to_datetime(df[dt_key])
+    df              = df.set_index('datetime')
+    del df[dt_key]
 
-    dtypes      = [np.int, np.int, np.float, np.int, np.int, np.float]
-    for key,dtype in zip(df.keys(),dtypes):
-        df[key] = df[key].astype(dtype)
+    for key in df.keys():
+        df[key] = df[key].astype(np.float)
 
+    return df
+
+def load_goes_xrs(src = 'data/goes15_xrs/g15_xrs_1m_20170901_20170930.csv.bz2'):
+    # Load data from CSV.
+    with bz2.BZ2File(src) as fl:
+        lines   = fl.readlines()
+    lines   = [x.decode('utf-8').strip('\r\n') for x in lines]
+
+    # Convert into dataframes.
+    loc_df              = lines_to_df(lines,'satellite location:')
+    loc_df['longitude'] = -1*loc_df['west_longitude']
+    del loc_df['west_longitude']
+
+    df      = lines_to_df(lines,'data:')
+    df      = pd.concat([df,loc_df],axis=1)
+
+    for key in loc_df.keys():
+        df[key].fillna(method='backfill',inplace=True)
+
+    import ipdb; ipdb.set_trace()
     return df
 
 if __name__ == '__main__':
