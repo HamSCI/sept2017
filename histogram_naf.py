@@ -51,7 +51,7 @@ tmp = {}
 tmp['label']            = 'UT Hours'
 prmd['ut_hrs']          = tmp
 
-CSV_FILE_PATH   = "csvs/{}.csv.bz2"
+CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
 band_obj        = BandData()
 BANDS           = band_obj.band_dict
 
