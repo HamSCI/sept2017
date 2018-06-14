@@ -107,7 +107,7 @@ def load_goes_xrs(src = 'data/goes15_xrs/g15_xrs_1m_20170901_20170930.csv.bz2'):
     df      = pd.concat([df,loc_df],axis=1)
 
     for key in loc_df.keys():
-        df[key].fillna(method='backfill',inplace=True)
+        df[key].fillna(method='ffill',inplace=True)
 
     import ipdb; ipdb.set_trace()
     return df

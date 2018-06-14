@@ -48,6 +48,11 @@ import pandas as pd
 
 import netCDF4
 
+pd.set_option('display.height', 1000)
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
 def add_months(sourcedate,months=1):
     """Add 1 month to a datetime object.
 
@@ -63,6 +68,10 @@ def add_months(sourcedate,months=1):
     month   = int(month % 12 + 1)
     day     = min(sourcedate.day,calendar.monthrange(year,month)[1])
     return datetime.date(year,month,day)
+
+def ut_hours(dt_obj):
+    ut_hr   = dt_obj.hour + dt_obj.minute/60. + dt_obj.second/3600.
+    return ut_hr
 
 def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
     """Download GOES X-Ray Flux data from the NOAA FTP Site and return a
@@ -203,9 +212,20 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
                 except:
                     pass
 
-    df_xray = df_xray[np.logical_and(df_xray.index >= sTime,df_xray.index < eTime)]
+    df_xray     = df_xray[np.logical_and(df_xray.index >= sTime,df_xray.index < eTime)]
+    df_orbit    = df_orbit[np.logical_and(df_orbit.index >= sTime,df_orbit.index < eTime)]
+
+    df_orbit['longitude']   = -1*df_orbit['west_longitude']
+    del df_orbit['west_longitude']
+
+    df_xray = pd.concat([df_xray,df_orbit],axis=1)
+    for key in df_orbit.keys():
+        df_xray[key].fillna(method='ffill',inplace=True)
+
+    df_xray['ut_hrs']   = df_xray.index.map(ut_hours)
+    df_xray['slt_mid']  = (df_xray['ut_hrs'] + df_xray['longitude']/15.) % 24.
+
     data_dict['xray']   = df_xray
-    df_orbit = df_orbit[np.logical_and(df_orbit.index >= sTime,df_orbit.index < eTime)]
     data_dict['orbit']  = df_orbit
 
     return data_dict
