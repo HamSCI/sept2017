@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import sys
 import time
 
+import multiprocessing as mp
+
 import geopack
 from timeutils import daterange
 from gen_lib import prep_output, BandData
@@ -41,7 +43,6 @@ rcp['axes.labelweight']     = 'bold'
 
 # Parameter Dictionary
 prmd = {}
-
 tmp = {}
 tmp['label']            = 'Solar Local Time [hr]'
 prmd['slt_mid']         = tmp
@@ -64,7 +65,7 @@ def hours_from_dt64(dt64, date_):
 
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
-        xkey='slt_mid',ylim=(0,3000)):
+        xkey='slt_mid',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
@@ -75,6 +76,8 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
     # TODO: Clean this bit up, namely the hours_from_dt64 setup
     hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
+    if calc_hist_maxes:
+        return hist
 
     xdct    = prmd[xkey]
     xlabel  = xdct.get('label',xkey)
@@ -82,19 +85,22 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     ax.set_title(title)
 
     # "borrowed" from SEQP
-    vmin    = 0
-    vmax    = 0.8*np.max(hist)
-    if np.sum(hist) == 0:
-        vmax = 1.0
+    if vmin is None:
+        vmin    = 0
+
+    if vmax is None:
+        vmax    = 0.8*np.max(hist)
+        if np.sum(hist) == 0: vmax = 1.0
+
+    levels  = np.linspace(vmin,vmax,15)
 
     cmap    = plt.cm.jet
-    pcoll   = ax.contourf(xb[:-1],yb[:-1],hist.T,15,vmin=vmin,vmax=vmax,cmap=cmap)
+    pcoll   = ax.contourf(xb[:-1],yb[:-1],hist.T,levels,vmin=vmin,vmax=vmax,cmap=cmap)
     ax.set_ylim(ylim)
     cbar    = plt.colorbar(pcoll,ax=ax)
     cbar.set_label('Spot Density')
 
-
-def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output'):
+def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output',calc_hist_maxes=False):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -117,15 +123,40 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output'):
 
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
 
+
+    # Plotting #############################
+
     nx  = 2
     ny  = len(BANDS)
 
     sf  = 1.00  # Scale Factor
     fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
 
-    for fig_row, band in enumerate(BANDS.values()):
-        frame   = df.loc[df["band"] == band.get('meters')]
+    hist_maxes  = {}
+    for fig_row, (band_key,band) in enumerate(BANDS.items()):
+        frame   = df.loc[df["band"] == band.get('meters')].copy()
         frame.sort_values(xkey,inplace=True)
+
+        n_mids  = len(frame)
+        print('   {!s}: {!s} (n={!s})'.format(date_str,band.get('freq_name'),n_mids))
+
+        # Histograms ########################### 
+        nn      = fig_row*nx + 2
+        ax      = fig.add_subplot(ny,nx,nn)
+        title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
+
+        vmin    = band.get('vmin')
+        vmax    = band.get('vmax')
+
+        hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim,
+                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes)
+
+        if calc_hist_maxes:
+#            if 'hist_maxes' not in band.keys():
+#                band['hist_maxes'] = []
+#            band['hist_maxes'].append(np.max(hist))
+            hist_maxes[band_key]    = np.max(hist)
+            continue
         
         #    # Map ################################## 
         nn      = fig_row*nx + 1
@@ -133,9 +164,6 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output'):
         ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
         ax.coastlines()
         ax.gridlines()
-        n_mids  = len(frame)
-        color   = band.get('color')
-        print('{!s} (n={!s})'.format(band.get('freq_name'),n_mids))
 
         label   = 'MidPt (N = {!s})'.format(n_mids)
 #        frame.plot.scatter('md_long', 'md_lat', color=color, ax=ax, marker="o",label=label,zorder=10,s=10)
@@ -168,11 +196,9 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output'):
         ax.set_ylim(-90,90)
         ax.legend(loc='lower center',ncol=3)
 
-        # Histograms ########################### 
-        nn      = fig_row*nx + 2
-        ax      = fig.add_subplot(ny,nx,nn)
-        title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
-        make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim)
+    if calc_hist_maxes:
+        plt.close(fig)
+        return hist_maxes
 
     fig.tight_layout()
 
@@ -181,13 +207,61 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output'):
     fig.savefig(fpath,bbox_inches='tight')
     plt.close(fig)
 
+def plot_wrapper(run_dct):
+    result  = make_histograms_by_date(**run_dct)
+    return result
+
+def calculate_limits(run_dcts):
+    """
+    Finds best spot density colorbar limits for each band given all plots
+    in the set.
+    """
+
+    this_rdcts = []
+    for run_dct in run_dcts:
+        tmp = run_dct.copy()
+        tmp['calc_hist_maxes'] = True
+        this_rdcts.append(tmp)
+    run_dcts    = this_rdcts
+
+#    results = []
+#    for run_dct in run_dcts:
+#        result  = plot_wrapper(run_dct)
+#        results.append(result)
+
+    with mp.Pool() as pool:
+        results = pool.map(plot_wrapper,run_dcts)
+
+    for result in results:
+        for band_key,band in BANDS.items():
+            if 'hist_maxes' not in band.keys():
+                band['hist_maxes'] = []
+            band['hist_maxes'].append(result[band_key])
+
+    for band_key,band in BANDS.items():
+        band['vmax']    = np.percentile(band['hist_maxes'],85)
+
 if __name__ == "__main__":
-    output_dir  = 'output/hist'
-    prep_output({0:output_dir},clear=True)
+    output_dir  = 'output/galleries/hist'
+    prep_output({0:output_dir},clear=True,php=True)
 
     sDate = datetime.datetime(2017, 9, 1)
+#    eDate = datetime.datetime(2017, 9, 3)
     eDate = datetime.datetime(2017, 10, 1)
+
+    run_dcts    = []
     for dt in daterange(sDate, eDate):
-        print("Making histogram for", dt)
-        date_str = dt.strftime("%Y-%m-%d")
-        make_histograms_by_date(date_str,output_dir=output_dir)
+        dct = {}
+        dct['date_str']     = dt.strftime("%Y-%m-%d")
+        dct['output_dir']   = output_dir
+        run_dcts.append(dct)
+
+    print('Calculating Limits...')
+    calculate_limits(run_dcts)
+
+    print('Plotting...')
+#    for run_dct in run_dcts:
+#        plot_wrapper(run_dct)
+
+    with mp.Pool(4) as pool:
+        results = pool.map(plot_wrapper,run_dcts)
