@@ -21,6 +21,7 @@ import multiprocessing as mp
 import geopack
 from timeutils import daterange
 from gen_lib import prep_output, BandData
+import goes
 
 
 sources     = OrderedDict()
@@ -65,7 +66,7 @@ def hours_from_dt64(dt64, date_):
 
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
-        xkey='slt_mid',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False):
+        xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
@@ -100,7 +101,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     cbar    = plt.colorbar(pcoll,ax=ax)
     cbar.set_label('Spot Density')
 
-def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output',calc_hist_maxes=False):
+def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc_hist_maxes=False):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -127,13 +128,24 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output',cal
     # Plotting #############################
 
     nx  = 2
-    ny  = len(BANDS)
+    ny  = len(BANDS)+1
 
     sf  = 1.00  # Scale Factor
     fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
 
+    # X-Rays ###############################
+    ax          = fig.add_subplot(ny,nx,2)
+    goes_ax     = ax
+    sDate       = datetime.datetime.strptime(date_str,'%Y-%m-%d')
+    goes_data   = goes.read_goes(sDate)
+    goes.goes_plot_hr(goes_data,ax,xkey=xkey)
+    xdct    = prmd[xkey]
+    xlabel  = xdct.get('label',xkey)
+    ax.set_xlabel(xlabel)
+
     hist_maxes  = {}
     for fig_row, (band_key,band) in enumerate(BANDS.items()):
+        fig_row += 1
         frame   = df.loc[df["band"] == band.get('meters')].copy()
         frame.sort_values(xkey,inplace=True)
 
@@ -150,6 +162,8 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output',cal
 
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes)
+
+        hist_ax = ax
 
         if calc_hist_maxes:
 #            if 'hist_maxes' not in band.keys():
@@ -201,6 +215,13 @@ def make_histograms_by_date(date_str: str,xkey='slt_mid',output_dir='output',cal
         return hist_maxes
 
     fig.tight_layout()
+
+    # Force GOES axis to line up with histogram axes even though
+    # it doesn't have a color bar.
+    hist_pos    = list(hist_ax.get_position().bounds)
+    goes_pos    = list(goes_ax.get_position().bounds)
+    goes_pos[2] = hist_pos[2]
+    goes_ax.set_position(goes_pos)
 
     fname   = date_str + ".png"
     fpath   = os.path.join(output_dir,fname)
@@ -263,5 +284,5 @@ if __name__ == "__main__":
 #    for run_dct in run_dcts:
 #        plot_wrapper(run_dct)
 
-    with mp.Pool(4) as pool:
+    with mp.Pool() as pool:
         results = pool.map(plot_wrapper,run_dcts)

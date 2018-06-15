@@ -230,6 +230,68 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
 
     return data_dict
 
+def goes_plot_hr(goes_data,ax,xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None):
+    """Plot GOES X-Ray Data.
+
+    Parameters
+    ----------
+    goes_data : dict
+        data dictionary returned by read_goes()
+    sTime : Optional[datetime.datetime]
+        object for start of plotting.
+    eTime : Optional[datetime.datetime]
+        object for end of plotting.
+    ymin : Optional[float]
+        Y-Axis minimum limit
+    ymax : Optional[float]
+        Y-Axis maximum limit
+    legendSize : Optional[int]
+        Character size of the legend
+    legendLoc : Optional[ ]
+    ax : Optional[ ]
+
+    Returns
+    -------
+    fig : matplotlib.figure
+        matplotlib figure object that was plotted to
+
+    Notes
+    -----
+    If a matplotlib figure currently exists, it will be modified
+    by this routine.  If not, a new one will be created.
+
+    Written by Nathaniel Frissell 2014 Sept 06
+
+    """
+    xx  = goes_data['xray'][xkey]
+    var_tags = ['A_AVG','B_AVG']
+    for var_tag in var_tags:
+        ax.plot(xx,goes_data['xray'][var_tag],label=goes_data['metadata']['variables'][var_tag]['long_label'])
+
+    ax.set_xlim(xlim)
+
+    #Label Flare classes
+    trans = matplotlib.transforms.blended_transform_factory(ax.transAxes, ax.transData)
+    classes = ['A', 'B', 'C', 'M', 'X']
+    decades = [  8,   7,   6,   5,   4]
+
+    for cls,dec in zip(classes,decades):
+        ax.text(1.01,2.5*10**(-dec),cls,transform=trans)
+
+    #Format the y-axis
+    ax.set_ylabel(r'W m$^{-2}$')
+    ax.set_yscale('log')
+    ax.set_ylim(1e-9,1e-2)
+
+    ax.grid()
+    ax.legend(prop={'size':legendSize},numpoints=1,loc=legendLoc)
+
+    file_keys = list(goes_data['metadata'].keys()) 
+    file_keys.remove('variables')
+    file_keys.sort()
+    md      = goes_data['metadata'][file_keys[-1]]
+    title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
+    ax.set_title(title)
 
 def goes_plot(goes_data,sTime=None,eTime=None,ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None,ax=None):
     """Plot GOES X-Ray Data.
