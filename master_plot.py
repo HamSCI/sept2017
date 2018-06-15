@@ -22,6 +22,7 @@ import geopack
 from timeutils import daterange
 from gen_lib import prep_output, BandData
 import goes
+from omni import Omni
 
 
 sources     = OrderedDict()
@@ -64,9 +65,18 @@ def hours_from_dt64(dt64, date_):
     """ Take a datetime64 and return the value in decimal hours"""
     return (dt64 - date_).astype(float) / 3600
 
+def adjust_axes(ax_0,ax_1):
+    """
+    Force geospace environment axes to line up with histogram
+    axes even though it doesn't have a color bar.
+    """
+    ax_0_pos    = list(ax_0.get_position().bounds)
+    ax_1_pos    = list(ax_1.get_position().bounds)
+    ax_0_pos[2] = ax_1_pos[2]
+    ax_0.set_position(ax_0_pos)
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
-        xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False):
+        xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False,xlabels=True,plot_title=False):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
@@ -74,16 +84,23 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # y-axis: distance (km)
     ybins = get_bins(ylim, 500)
 
-
     # TODO: Clean this bit up, namely the hours_from_dt64 setup
     hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
     if calc_hist_maxes:
         return hist
 
-    xdct    = prmd[xkey]
-    xlabel  = xdct.get('label',xkey)
-    ax.set_xlabel(xlabel)
-    ax.set_title(title)
+    if xlabels:
+        xdct    = prmd[xkey]
+        xlabel  = xdct.get('label',xkey)
+        ax.set_xlabel(xlabel)
+    else:
+        for xtl in ax.get_xticklabels():
+            xtl.set_visible(False)
+
+    if plot_title:
+        ax.set_title(title)
+
+    ax.set_ylabel('R_gc [km]')
 
     # "borrowed" from SEQP
     if vmin is None:
@@ -128,24 +145,40 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     # Plotting #############################
 
     nx  = 2
-    ny  = len(BANDS)+1
+    ny  = len(BANDS)+2
+    nn  = 0
 
     sf  = 1.00  # Scale Factor
     fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
 
-    # X-Rays ###############################
-    ax          = fig.add_subplot(ny,nx,2)
-    goes_ax     = ax
-    sDate       = datetime.datetime.strptime(date_str,'%Y-%m-%d')
-    goes_data   = goes.read_goes(sDate)
+    # Geospace Environment ####################
+    axs_to_adjust   = []
+    sDate           = datetime.datetime.strptime(date_str,'%Y-%m-%d')
+    eDate           = sDate + datetime.timedelta(days=1)
+
+    nn              += 2
+    omni            = Omni()
+    ax              = fig.add_subplot(ny,nx,nn)
+    omni_axs        = omni.plot_dst_kp(sDate,eDate,ax,xlabels=False)
+    axs_to_adjust   += omni_axs
+    goes_data       = goes.read_goes(sDate)
+
+    nn              += 2
+    ax              = fig.add_subplot(ny,nx,nn)
+    xdct            = prmd[xkey]
+    xlabel          = xdct.get('label',xkey)
     goes.goes_plot_hr(goes_data,ax,xkey=xkey)
-    xdct    = prmd[xkey]
-    xlabel  = xdct.get('label',xkey)
     ax.set_xlabel(xlabel)
+    axs_to_adjust.append(ax)
 
     hist_maxes  = {}
     for fig_row, (band_key,band) in enumerate(BANDS.items()):
-        fig_row += 1
+        fig_row += ny-len(BANDS)
+        if fig_row == ny-1:
+            xlabels = True
+        else:
+            xlabels = False
+
         frame   = df.loc[df["band"] == band.get('meters')].copy()
         frame.sort_values(xkey,inplace=True)
 
@@ -161,7 +194,11 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
         vmax    = band.get('vmax')
 
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim,
-                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes)
+                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels)
+
+        fname   = band.get('freq_name')
+        fdict   = {'size':35,'weight':'bold'}
+        ax.text(-0.1725,0.5,fname,transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
 
         hist_ax = ax
 
@@ -216,12 +253,13 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
 
     fig.tight_layout()
 
-    # Force GOES axis to line up with histogram axes even though
-    # it doesn't have a color bar.
-    hist_pos    = list(hist_ax.get_position().bounds)
-    goes_pos    = list(goes_ax.get_position().bounds)
-    goes_pos[2] = hist_pos[2]
-    goes_ax.set_position(goes_pos)
+    # Force geospace environment axes to line up with histogram
+    # axes even though it doesn't have a color bar.
+    for ax_0 in axs_to_adjust:
+        adjust_axes(ax_0,hist_ax)
+
+    fdict   = {'size':50,'weight':'bold'}
+    fig.text(0.265,0.925,date_str,fontdict=fdict)
 
     fname   = date_str + ".png"
     fpath   = os.path.join(output_dir,fname)
