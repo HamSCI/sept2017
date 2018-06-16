@@ -108,14 +108,14 @@ def regional_filter(region,df,kind='mids'):
         tf          = tf_0
         df          = df[tf].copy()
     elif kind == 'endpoints':
-        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_min, df.rx_lat < lat_max)
-        tf_rx_long  = np.logical_and(df.rx_long >= lon_min, df.rx_long < lon_max)
+        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_lim[0], df.rx_lat < lat_lim[1])
+        tf_rx_long  = np.logical_and(df.rx_long >= lon_lim[0], df.rx_long < lon_lim[1])
         tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
 
-        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_min, df.tx_lat < lat_max)
-        tf_tx_long  = np.logical_and(df.tx_long >= lon_min, df.tx_long < lon_max)
+        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_lim[0], df.tx_lat < lat_lim[1])
+        tf_tx_long  = np.logical_and(df.tx_long >= lon_lim[0], df.tx_long < lon_lim[1])
         tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
-        tf          = np.logical_and(tf_rx,tf_tx)
+        tf          = np.logical_or(tf_rx,tf_tx)
 
         df          = df[tf].copy()
 
@@ -131,7 +131,13 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     ybins = get_bins(ylim, 500)
 
     # TODO: Clean this bit up, namely the hours_from_dt64 setup
-    hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
+    if len(df[xkey]) > 1:
+        hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
+    else:
+        xb      = xbins
+        yb      = ybins
+        hist    = np.zeros((len(xb)-1,len(yb)-1))
+
     if calc_hist_maxes:
         return hist
 
@@ -168,8 +174,11 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
-    rgc_lim = (0, 3000)
-    region  = 'US'
+#    rgc_lim             = (0, 3000)
+    rgc_lim             = (0, 10000)
+    maplim_region       = 'World'
+    filter_region       = 'Carribean'
+    filter_region_kind  = 'endpoints'
 
     df = pd.read_csv(CSV_FILE_PATH.format(date_str))
 
@@ -187,12 +196,8 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     df['md_lat']    = midpoints[0]
     df['md_long']   = midpoints[1]
 
-    rgnd    = regions[region]
-    lat_lim = rgnd['lat_lim']
-    lon_lim = rgnd['lon_lim']
-
     # Regional Filtering
-    df      = regional_filter(region,df,kind='mids')
+    df      = regional_filter(filter_region,df,kind=filter_region_kind)
 
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
 
@@ -277,11 +282,16 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
         vmin    = 0
         vmax    = 24
 
-        c       = frame[xkey]
+        cc      = frame[xkey]
         xx      = frame['md_long']
         yy      = frame['md_lat']
-        pcoll   = ax.scatter(xx,yy, c=c, cmap=cmap, vmin=vmin, vmax=vmax,
-                    marker="o",label=label,zorder=10,s=10)
+
+        if len(xx) == 0:
+            xx  = np.array([0,0])
+            yy  = np.array([0,0])
+            cc  = np.array([0,0])
+
+        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
         cbar    = plt.colorbar(pcoll,ax=ax)
 
         cdct    = prmd[xkey]
@@ -292,16 +302,14 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
 #        tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
 #        label   = 'TX (N = {!s})'.format(len(tx_df))
 #        tx_df.plot.scatter('tx_long', 'tx_lat', color="black", ax=ax, marker="o",label=label,zorder=20,s=1)
-
+#
 #        rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
 
-#        ax.set_xlim(-180,180)
-#        ax.set_ylim(-90,90)
+        ax.set_xlim(regions[maplim_region]['lon_lim'])
+        ax.set_ylim(regions[maplim_region]['lat_lim'])
 
-        ax.set_xlim(lon_lim[0],lon_lim[1])
-        ax.set_ylim(lat_lim[0],lat_lim[1])
         ax.legend(loc='lower center',ncol=3)
 
     if calc_hist_maxes:
