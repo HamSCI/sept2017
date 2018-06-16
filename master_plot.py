@@ -93,9 +93,9 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         xdct    = prmd[xkey]
         xlabel  = xdct.get('label',xkey)
         ax.set_xlabel(xlabel)
-    else:
-        for xtl in ax.get_xticklabels():
-            xtl.set_visible(False)
+#    else:
+#        for xtl in ax.get_xticklabels():
+#            xtl.set_visible(False)
 
     if plot_title:
         ax.set_title(title)
@@ -139,8 +139,33 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     df['md_lat']    = midpoints[0]
     df['md_long']   = midpoints[1]
 
-    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+    # Lat/Lon Filtering
 
+#    # World
+#    lon_min     = -180.
+#    lon_max     =  180.
+#    lat_min     =  -90.
+#    lat_max     =   90.
+
+#    # United States
+#    lon_min     = -130.
+#    lon_max     = -60.
+#    lat_min     =  20.
+#    lat_max     =  55.
+
+    # Europe
+    lon_min     = -15.
+    lon_max     = 55.
+    lat_min     =  30.
+    lat_max     =  65.
+
+    tf_md_lat   = np.logical_and(df.md_lat >= lat_min, df.md_lat < lat_max)
+    tf_md_long  = np.logical_and(df.md_long >= lon_min, df.md_long < lon_max)
+    tf_0        = np.logical_and(tf_md_lat,tf_md_long)
+    tf          = tf_0
+    df          = df[tf].copy()
+
+    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
 
     # Plotting #############################
 
@@ -243,8 +268,11 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
 
-        ax.set_xlim(-180,180)
-        ax.set_ylim(-90,90)
+#        ax.set_xlim(-180,180)
+#        ax.set_ylim(-90,90)
+
+        ax.set_xlim(lon_min,lon_max)
+        ax.set_ylim(lat_min,lat_max)
         ax.legend(loc='lower center',ncol=3)
 
     if calc_hist_maxes:
