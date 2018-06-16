@@ -24,7 +24,6 @@ from gen_lib import prep_output, BandData
 import goes
 from omni import Omni
 
-
 sources     = OrderedDict()
 sources[0]  = "dxcluster"
 sources[1]  = "WSPRNet"
@@ -53,6 +52,28 @@ tmp = {}
 tmp['label']            = 'UT Hours'
 prmd['ut_hrs']          = tmp
 
+# Region Dictionary
+regions = {}
+tmp     = {}
+tmp['lon_lim']  = (-180.,180.)
+tmp['lat_lim']  = ( -90., 90.)
+regions['World']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = (-130.,-60.)
+tmp['lat_lim']  = (  20., 55.)
+regions['US']   = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -15., 55.)
+tmp['lat_lim']  = (  30., 65.)
+regions['Europe']   = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -90.,-60.)
+tmp['lat_lim']  = (  15., 30.)
+regions['Carribean']    = tmp
+
 CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
 band_obj        = BandData()
 BANDS           = band_obj.band_dict
@@ -74,6 +95,31 @@ def adjust_axes(ax_0,ax_1):
     ax_1_pos    = list(ax_1.get_position().bounds)
     ax_0_pos[2] = ax_1_pos[2]
     ax_0.set_position(ax_0_pos)
+
+def regional_filter(region,df,kind='mids'):
+    rgnd    = regions[region]
+    lat_lim = rgnd['lat_lim']
+    lon_lim = rgnd['lon_lim']
+
+    if kind == 'mids':
+        tf_md_lat   = np.logical_and(df.md_lat >= lat_lim[0], df.md_lat < lat_lim[1])
+        tf_md_long  = np.logical_and(df.md_long >= lon_lim[0], df.md_long < lon_lim[1])
+        tf_0        = np.logical_and(tf_md_lat,tf_md_long)
+        tf          = tf_0
+        df          = df[tf].copy()
+    elif kind == 'endpoints':
+        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_min, df.rx_lat < lat_max)
+        tf_rx_long  = np.logical_and(df.rx_long >= lon_min, df.rx_long < lon_max)
+        tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
+
+        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_min, df.tx_lat < lat_max)
+        tf_tx_long  = np.logical_and(df.tx_long >= lon_min, df.tx_long < lon_max)
+        tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
+        tf          = np.logical_and(tf_rx,tf_tx)
+
+        df          = df[tf].copy()
+
+    return df
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False,xlabels=True,plot_title=False):
@@ -122,13 +168,15 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
+    rgc_lim = (0, 3000)
+    region  = 'US'
+
     df = pd.read_csv(CSV_FILE_PATH.format(date_str))
 
     df["occurred"]  = pd.to_datetime(df["occurred"])
     df["ut_hrs"]    = hours_from_dt64(df["occurred"].values.astype("M8[s]"), np.datetime64(date_str))
 
-    # Filtering
-    rgc_lim = (0, 3000)
+    # Path Length Filtering
     tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
                          df['dist_Km'] <  rgc_lim[1])
     df  = df[tf].copy()
@@ -139,31 +187,12 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     df['md_lat']    = midpoints[0]
     df['md_long']   = midpoints[1]
 
-    # Lat/Lon Filtering
+    rgnd    = regions[region]
+    lat_lim = rgnd['lat_lim']
+    lon_lim = rgnd['lon_lim']
 
-#    # World
-#    lon_min     = -180.
-#    lon_max     =  180.
-#    lat_min     =  -90.
-#    lat_max     =   90.
-
-#    # United States
-#    lon_min     = -130.
-#    lon_max     = -60.
-#    lat_min     =  20.
-#    lat_max     =  55.
-
-    # Europe
-    lon_min     = -15.
-    lon_max     = 55.
-    lat_min     =  30.
-    lat_max     =  65.
-
-    tf_md_lat   = np.logical_and(df.md_lat >= lat_min, df.md_lat < lat_max)
-    tf_md_long  = np.logical_and(df.md_long >= lon_min, df.md_long < lon_max)
-    tf_0        = np.logical_and(tf_md_lat,tf_md_long)
-    tf          = tf_0
-    df          = df[tf].copy()
+    # Regional Filtering
+    df      = regional_filter(region,df,kind='mids')
 
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
 
@@ -271,8 +300,8 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
 #        ax.set_xlim(-180,180)
 #        ax.set_ylim(-90,90)
 
-        ax.set_xlim(lon_min,lon_max)
-        ax.set_ylim(lat_min,lat_max)
+        ax.set_xlim(lon_lim[0],lon_lim[1])
+        ax.set_ylim(lat_lim[0],lat_lim[1])
         ax.legend(loc='lower center',ncol=3)
 
     if calc_hist_maxes:
@@ -331,6 +360,7 @@ def calculate_limits(run_dcts):
 if __name__ == "__main__":
     output_dir  = 'output/galleries/hist'
     prep_output({0:output_dir},clear=True,php=True)
+    test_configuration  = False
 
     sDate = datetime.datetime(2017, 9, 1)
 #    eDate = datetime.datetime(2017, 9, 3)
@@ -343,12 +373,14 @@ if __name__ == "__main__":
         dct['output_dir']   = output_dir
         run_dcts.append(dct)
 
-    print('Calculating Limits...')
-    calculate_limits(run_dcts)
+    if test_configuration:
+        print('Plotting...')
+        for run_dct in run_dcts:
+            plot_wrapper(run_dct)
+    else:
+        print('Calculating Limits...')
+        calculate_limits(run_dcts)
 
-    print('Plotting...')
-#    for run_dct in run_dcts:
-#        plot_wrapper(run_dct)
-
-    with mp.Pool() as pool:
-        results = pool.map(plot_wrapper,run_dcts)
+        print('Plotting...')
+        with mp.Pool() as pool:
+            results = pool.map(plot_wrapper,run_dcts)
