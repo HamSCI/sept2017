@@ -6,6 +6,9 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+import cartopy.crs as ccrs
+
+import datetime
 
 def make_dir(path,clear=False,php=False):
     prep_output({0:path},clear=clear,php=php)
@@ -152,3 +155,77 @@ def cdict_to_cmap(cdict,name='CustomCMAP',vmin=0.,vmax=30.):
 		 'blue'  : tuple(blue)}
 	cmap  = matplotlib.colors.LinearSegmentedColormap(name, cdict)
 	return cmap
+
+def sun_pos(dt=None):
+    """This function computes a rough estimate of the coordinates for
+    the point on the surface of the Earth where the Sun is directly
+    overhead at the time dt. Precision is down to a few degrees. This
+    means that the equinoxes (when the sign of the latitude changes)
+    will be off by a few days.
+
+    The function is intended only for visualization. For more precise
+    calculations consider for example the PyEphem package.
+
+    Parameters
+    ----------
+    dt: datetime
+        Defaults to datetime.utcnow()
+
+    Returns
+    -------
+    lat, lng: tuple of floats
+        Approximate coordinates of the point where the sun is
+        in zenith at the time dt.
+
+    """
+    if dt is None:
+        dt = datetime.datetime.utcnow()
+
+    axial_tilt = 23.4
+    ref_solstice = datetime.datetime(2016, 6, 21, 22, 22)
+    days_per_year = 365.2425
+    seconds_per_day = 24*60*60.0
+
+    days_since_ref = (dt - ref_solstice).total_seconds()/seconds_per_day
+    lat = axial_tilt*np.cos(2*np.pi*days_since_ref/days_per_year)
+    sec_since_midnight = (dt - datetime.datetime(dt.year, dt.month, dt.day)).seconds
+    lng = -(sec_since_midnight/seconds_per_day - 0.5)*360
+    return lat, lng
+
+
+def fill_dark_side(ax, time=None, *args, **kwargs):
+    """
+    Plot a fill on the dark side of the planet (without refraction).
+
+    Parameters
+    ----------
+        ax : Matplotlib axes
+            The axes to plot on.
+        time : datetime
+            The time to calculate terminator for. Defaults to datetime.utcnow()
+        **kwargs :
+            Passed on to Matplotlib's ax.fill()
+
+    """
+    lat, lng = sun_pos(time)
+    pole_lng = lng
+    if lat > 0:
+        pole_lat = -90 + lat
+        central_rot_lng = 180
+    else:
+        pole_lat = 90 + lat
+        central_rot_lng = 0
+
+    rotated_pole = ccrs.RotatedPole(pole_latitude=pole_lat,
+                                    pole_longitude=pole_lng,
+                                    central_rotated_longitude=central_rot_lng)
+
+    x = np.empty(360)
+    y = np.empty(360)
+    x[:180] = -90
+    y[:180] = np.arange(-90, 90.)
+    x[180:] = 90
+    y[180:] = np.arange(90, -90., -1)
+
+    ax.fill(x, y, transform=rotated_pole, **kwargs)
+

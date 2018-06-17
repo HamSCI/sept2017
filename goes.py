@@ -283,7 +283,15 @@ def goes_plot_hr(goes_data,ax,xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,legen
     ax.set_yscale('log')
     ax.set_ylim(1e-9,1e-2)
 
-    ax.grid()
+#    minor_ticks = np.array([1e-9,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2])
+#    ax.set_yticks(minor_ticks,minor=True)
+#
+#    minor_ticks = np.array([])
+#    ax.set_xticks(minor_ticks,minor=True)
+#
+#    ax.minorticks_on()
+#    ax.grid(True,which='minor')
+    ax.grid(True,which='major')
     ax.legend(prop={'size':legendSize},numpoints=1,loc=legendLoc)
 
     file_keys = list(goes_data['metadata'].keys()) 
@@ -559,10 +567,10 @@ def find_flares(goes_data,window_minutes=60,min_class='X1',sTime=None,eTime=None
         eWin = win + time_delta_half
 
         try:
-            arg_max = b_avg[sWin:eWin].argmax()
-            if arg_max is np.nan:
+            idx_max = b_avg[sWin:eWin].idxmax()
+            if idx_max is np.nan:
                 continue
-            keys.append(arg_max)
+            keys.append(idx_max)
         except:
             pass
         
