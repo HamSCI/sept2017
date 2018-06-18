@@ -128,7 +128,8 @@ def regional_filter(region,df,kind='mids'):
     return df
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
-        xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,calc_hist_maxes=False,xlabels=True,plot_title=False):
+        xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
+        calc_hist_maxes=False,xlabels=True,plot_title=False):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
@@ -143,6 +144,14 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         xb      = xbins
         yb      = ybins
         hist    = np.zeros((len(xb)-1,len(yb)-1))
+
+    if log_hist:
+        tf          = hist >= 1
+        tmp         = np.log10(hist[tf])
+
+        hist_1      = hist*0.
+        hist_1[tf]  = tmp
+        hist        = hist_1
 
     if calc_hist_maxes:
         return hist
@@ -175,11 +184,14 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     pcoll   = ax.contourf(xb[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
     ax.set_ylim(ylim)
     cbar    = plt.colorbar(pcoll,ax=ax)
-    cbar.set_label('Ham Radio\nSpot Density')
+    if log_hist:
+        cbar.set_label('log10(Ham Radio\nSpot Density)')
+    else:
+        cbar.set_label('Ham Radio\nSpot Density')
 
 def make_figure(date_str: str,xkey='ut_hrs',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        output_dir='output',calc_hist_maxes=False,fname=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -291,7 +303,7 @@ def make_figure(date_str: str,xkey='ut_hrs',
         vmax    = band.get('vmax')
 
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim,
-                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels)
+                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist)
 
         fdict   = {'size':35,'weight':'bold'}
         ax.text(-0.1725,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
@@ -408,49 +420,51 @@ def calculate_limits(run_dcts):
 if __name__ == "__main__":
     output_dir  = 'output/galleries/hist'
     prep_output({0:output_dir},clear=True,php=True)
-    test_configuration  = False
+    test_configuration  = True
     global_cbars        = False
 
     run_dcts    = []
 
-    dct = {}
-    dct['date_str']             = '2017-09-06'
-    dct['xkey']                 = 'ut_hrs'
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'Europe'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    dct['fname']                = '2017-09-06-EU.png'
-    run_dcts.append(dct)
+#    dct = {}
+#    dct['date_str']             = '2017-09-06'
+#    dct['xkey']                 = 'ut_hrs'
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'Europe'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = '2017-09-06-EU.png'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['date_str']             = '2017-09-06'
+#    dct['xkey']                 = 'ut_hrs'
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'US'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = '2017-09-06-US.png'
+#    run_dcts.append(dct)
 
-    dct = {}
-    dct['date_str']             = '2017-09-06'
-    dct['xkey']                 = 'ut_hrs'
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    dct['fname']                = '2017-09-06-US.png'
-    run_dcts.append(dct)
+#    dct = {}
+#    dct['date_str']             = '2017-09-08'
+#    dct['xkey']                 = 'ut_hrs'
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = None
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = '2017-09-08.png'
+#    run_dcts.append(dct)
 
     dct = {}
     dct['date_str']             = '2017-09-08'
     dct['xkey']                 = 'ut_hrs'
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'World'
-    dct['filter_region']        = None
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    dct['fname']                = '2017-09-08.png'
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['date_str']             = '2017-09-08'
-    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,20000)
     dct['maplim_region']        = 'World'
     dct['output_dir']           = output_dir
+    dct['log_hist']             = True
     run_dcts.append(dct)
 
 #    sDate = datetime.datetime(2017, 9, 1)
