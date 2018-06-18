@@ -250,7 +250,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     # Plotting #############################
 
-    nx  = 2
+    nx  = 4
     ny  = len(BANDS)+2
     nn  = 0
 
@@ -262,7 +262,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     axs_to_adjust   = []
     nn              += 2
     omni            = Omni()
-    ax              = fig.add_subplot(ny,nx,nn)
+#    ax              = fig.add_subplot(ny,nx,nn)
+    ax              = plt.subplot2grid((ny,nx),(0,1),colspan=3)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True)
     axs_to_adjust   += omni_axs
 
@@ -279,7 +280,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
     nn              += 2
-    ax              = fig.add_subplot(ny,nx,nn)
+#    ax              = fig.add_subplot(ny,nx,nn)
+    ax              = plt.subplot2grid((ny,nx),(1,1),colspan=3)
     xdct            = prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     for sat_nr,gd in goes_dcts.items():
@@ -320,7 +322,8 @@ def make_figure(sTime,eTime,xkey='occurred',
 
         # Histograms ########################### 
         nn      = fig_row*nx + 2
-        ax      = fig.add_subplot(ny,nx,nn)
+#        ax      = fig.add_subplot(ny,nx,nn)
+        ax      = plt.subplot2grid((ny,nx),(fig_row,1),colspan=3)
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
         vmin    = band.get('vmin')
@@ -344,7 +347,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         #    # Map ################################## 
         nn      = fig_row*nx + 1
 
-        ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
+#        ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
+        ax = plt.subplot2grid((ny,nx),(fig_row,0),colspan=1,projection=ccrs.PlateCarree())
         ax.coastlines()
         ax.gridlines()
 
@@ -364,13 +368,13 @@ def make_figure(sTime,eTime,xkey='occurred',
             yy  = np.array([0,0])
             cc  = np.array([0,0])
 
-        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
-        cbar    = plt.colorbar(pcoll,ax=ax)
-
-        cdct    = prmd[xkey]
-        clabel  = cdct.get('label',xkey)
-        fontdict = {'size':'xx-large','weight':'normal'}
-        cbar.set_label(clabel,fontdict=fontdict)
+#        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
+#        cbar    = plt.colorbar(pcoll,ax=ax)
+#
+#        cdct    = prmd[xkey]
+#        clabel  = cdct.get('label',xkey)
+#        fontdict = {'size':'xx-large','weight':'normal'}
+#        cbar.set_label(clabel,fontdict=fontdict)
 
 #        tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
 #        label   = 'TX (N = {!s})'.format(len(tx_df))
