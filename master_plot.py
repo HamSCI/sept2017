@@ -179,7 +179,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(date_str: str,xkey='ut_hrs',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        output_dir='output',calc_hist_maxes=False):
+        output_dir='output',calc_hist_maxes=False,fname=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -293,9 +293,8 @@ def make_figure(date_str: str,xkey='ut_hrs',
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels)
 
-        fname   = band.get('freq_name')
         fdict   = {'size':35,'weight':'bold'}
-        ax.text(-0.1725,0.5,fname,transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
+        ax.text(-0.1725,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
 
         hist_ax = ax
 
@@ -364,9 +363,10 @@ def make_figure(date_str: str,xkey='ut_hrs',
     fdict   = {'size':50,'weight':'bold'}
     fig.text(0.265,0.925,date_str,fontdict=fdict)
 
-    fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
-            date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind
-            )
+    if fname is None:
+        fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
+                date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind
+                )
     fpath   = os.path.join(output_dir,fname)
     fig.savefig(fpath,bbox_inches='tight')
     plt.close(fig)
@@ -408,10 +408,11 @@ def calculate_limits(run_dcts):
 if __name__ == "__main__":
     output_dir  = 'output/galleries/hist'
     prep_output({0:output_dir},clear=True,php=True)
-    test_configuration  = True
+    test_configuration  = False
     global_cbars        = False
 
     run_dcts    = []
+
     dct = {}
     dct['date_str']             = '2017-09-06'
     dct['xkey']                 = 'ut_hrs'
@@ -420,17 +421,37 @@ if __name__ == "__main__":
     dct['filter_region']        =  dct['maplim_region']
     dct['filter_region_kind']   = 'mids'
     dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-06-EU.png'
     run_dcts.append(dct)
 
-#    dct = {}
-#    dct['date_str']             = '2017-09-06'
-#    dct['xkey']                 = 'ut_hrs'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'US'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    run_dcts.append(dct)
+    dct = {}
+    dct['date_str']             = '2017-09-06'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'US'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-06-US.png'
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['date_str']             = '2017-09-08'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'World'
+    dct['filter_region']        = None
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-08.png'
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['date_str']             = '2017-09-08'
+    dct['xkey']                 = 'ut_hrs'
+    dct['maplim_region']        = 'World'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
 
 #    sDate = datetime.datetime(2017, 9, 1)
 #    eDate = datetime.datetime(2017, 9, 3)
