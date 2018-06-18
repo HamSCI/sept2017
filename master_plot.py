@@ -85,7 +85,8 @@ BANDS           = band_obj.band_dict
 
 def get_bins(lim, bin_size):
     """ Helper function to split a limit into bins of the proper size """
-    return np.arange(lim[0], lim[1]+2*bin_size, bin_size)
+    bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
+    return bins
 
 def hours_from_dt64(dt64, date_):
     """ Take a datetime64 and return the value in decimal hours"""
@@ -176,16 +177,19 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     cbar    = plt.colorbar(pcoll,ax=ax)
     cbar.set_label('Spot Density')
 
-def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc_hist_maxes=False):
+def make_figure(date_str: str,xkey='ut_hrs',
+        rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
+        output_dir='output',calc_hist_maxes=False):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
-    rgc_lim             = (0, 3000)
-#    rgc_lim             = (0, 10000)
-#    maplim_region       = 'World'
-    maplim_region       = 'Greater Carribean'
-    filter_region       = 'Carribean'
-    filter_region_kind  = 'endpoints'
+
+#    rgc_lim             = (0, 3000)
+##    rgc_lim             = (0, 10000)
+##    maplim_region       = 'World'
+#    maplim_region       = 'Greater Carribean'
+#    filter_region       = 'Carribean'
+#    filter_region_kind  = 'endpoints'
 
     df = pd.read_csv(CSV_FILE_PATH.format(date_str))
 
@@ -193,9 +197,10 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     df["ut_hrs"]    = hours_from_dt64(df["occurred"].values.astype("M8[s]"), np.datetime64(date_str))
 
     # Path Length Filtering
-    tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
-                         df['dist_Km'] <  rgc_lim[1])
-    df  = df[tf].copy()
+    if rgc_lim is not None:
+        tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
+                             df['dist_Km'] <  rgc_lim[1])
+        df  = df[tf].copy()
 
     cols = list(df) + ["md_lat", "md_long"]
     df = df.reindex(columns=cols)
@@ -204,7 +209,8 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     df['md_long']   = midpoints[1]
 
     # Regional Filtering
-    df      = regional_filter(filter_region,df,kind=filter_region_kind)
+    if filter_region is not None:
+        df      = regional_filter(filter_region,df,kind=filter_region_kind)
 
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
 
@@ -348,13 +354,15 @@ def make_histograms_by_date(date_str: str,xkey='ut_hrs',output_dir='output',calc
     fdict   = {'size':50,'weight':'bold'}
     fig.text(0.265,0.925,date_str,fontdict=fdict)
 
-    fname   = date_str + ".png"
+    fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
+            date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind
+            )
     fpath   = os.path.join(output_dir,fname)
     fig.savefig(fpath,bbox_inches='tight')
     plt.close(fig)
 
 def plot_wrapper(run_dct):
-    result  = make_histograms_by_date(**run_dct)
+    result  = make_figure(**run_dct)
     return result
 
 def calculate_limits(run_dcts):
@@ -390,26 +398,49 @@ def calculate_limits(run_dcts):
 if __name__ == "__main__":
     output_dir  = 'output/galleries/hist'
     prep_output({0:output_dir},clear=True,php=True)
-    test_configuration  = False
-
-    sDate = datetime.datetime(2017, 9, 1)
-    eDate = datetime.datetime(2017, 9, 16)
-#    eDate = datetime.datetime(2017, 10, 1)
+    test_configuration  = True
+    global_cbars        = False
 
     run_dcts    = []
-    for dt in daterange(sDate, eDate):
-        dct = {}
-        dct['date_str']     = dt.strftime("%Y-%m-%d")
-        dct['output_dir']   = output_dir
-        run_dcts.append(dct)
+    dct = {}
+    dct['date_str']             = '2017-09-06'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+#    dct = {}
+#    dct['date_str']             = '2017-09-06'
+#    dct['xkey']                 = 'ut_hrs'
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'US'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+
+#    sDate = datetime.datetime(2017, 9, 1)
+#    eDate = datetime.datetime(2017, 9, 3)
+##    eDate = datetime.datetime(2017, 10, 1)
+#
+#    run_dcts    = []
+#    for dt in daterange(sDate, eDate):
+#        dct = {}
+#        dct['date_str']     = dt.strftime("%Y-%m-%d")
+#        dct['output_dir']   = output_dir
+#        run_dcts.append(dct)
 
     if test_configuration:
         print('Plotting...')
         for run_dct in run_dcts:
             plot_wrapper(run_dct)
     else:
-        print('Calculating Limits...')
-        calculate_limits(run_dcts)
+        if global_cbars:
+            print('Calculating Limits...')
+            calculate_limits(run_dcts)
 
         print('Plotting...')
         with mp.Pool() as pool:
