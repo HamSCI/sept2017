@@ -17,7 +17,7 @@ import time
 import tqdm
 
 import geopack
-from gen_lib import prep_output, BandData,fill_dark_side
+from gen_lib import prep_output, BandData,fill_dark_side, band_legend
 
 sources     = OrderedDict()
 sources[0]  = "dxcluster"
@@ -77,9 +77,18 @@ tmp['lon_lim']  = ( -110.,-30.)
 tmp['lat_lim']  = (    0., 45.)
 regions['Greater Carribean']    = tmp
 
+de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
+dxf_prop        = {'marker':'*','color':'blue'}
+dxf_leg_size    = 150
+dxf_plot_size   = 50
+
 CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
 band_obj        = BandData()
 BANDS           = band_obj.band_dict
+
+def get_bins(lim, bin_size):
+    """ Helper function to split a limit into bins of the proper size """
+    return np.arange(lim[0], lim[1]+2*bin_size, bin_size)
 
 def hours_from_dt64(dt64, date_):
     """ Take a datetime64 and return the value in decimal hours"""
@@ -115,9 +124,10 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
     ny  = len(time_periods)
     nn  = 0
 
-    sf  = 1.00  # Scale Factor
+    sf  = .750  # Scale Factor
     fig = plt.figure(figsize=(sf*20,sf*8*ny))
 
+    alphas  = ['a','b']
     for plt_inx,time_period in enumerate(time_periods):
         ax  = fig.add_subplot(ny,nx,plt_inx+1,projection=ccrs.PlateCarree())
         ax.coastlines()
@@ -130,38 +140,92 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
 
         n_mids  = len(frame)
 
-        label   = 'MidPt (N = {!s})'.format(n_mids)
-
-        cmap    = matplotlib.cm.jet
-        vmin    = 0
-        vmax    = 30
-
         xkey    = 'freq'
         cc      = frame[xkey]/1000.
         xx      = frame['md_long']
         yy      = frame['md_lat']
 
-        for rinx,row in tqdm.tqdm(frame.iterrows(),total=len(frame)):
-            xx  = [row['rx_lat'],row['rx_long']]
-            yy  = [row['tx_lat'],row['tx_long']]
+        plot_type   = 'path'
+        
+        for band,band_dct in BANDS.items():
+            band_dct['count']   = np.sum(frame['band'] == band_dct['meters'])
 
-            ax.plot(xx,yy,transform=ccrs.Geodetic())
+        if plot_type == 'path':
+            frame   = frame.sort_values('freq')
+            for rinx,row in tqdm.tqdm(frame.iterrows(),total=len(frame)):
+                xx  = [row['tx_long'],row['rx_long']]
+                yy  = [row['tx_lat'], row['rx_lat']]
+                clr = band_obj.get_rgba(row['freq']/1000)
 
-#        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
-#        cbar    = plt.colorbar(pcoll,ax=ax)
+                ax.plot(xx,yy,transform=ccrs.Geodetic(),color=clr)
+                legend  = band_legend(ax,band_data=band_obj,rbn_rx=False)
+
+            tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
+#            label   = 'TX (N = {!s})'.format(len(tx_df))
+#            tx_df.plot.scatter('tx_long', 'tx_lat', color="black", ax=ax, marker="o",label=label,zorder=20,s=1)
+
+            rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
+#            label   = 'RX (N = {!s})'.format(len(rx_df))
+#            rx_df.plot.scatter('rx_long', 'rx_lat', ax=ax,zorder=30,s=10,**de_prop)
+
+            text = []
+            text.append('TX: {!s}'.format(len(tx_df)))
+            text.append('RX: {!s}'.format(len(rx_df)))
+            text.append('Paths: {!s}'.format(len(frame)))
+
+            props = dict(facecolor='white', alpha=0.75,pad=6)
+            ax.text(0.02,0.05,'\n'.join(text),transform=ax.transAxes,
+                    ha='left',va='bottom',size='large',zorder=500,bbox=props)
+
+        elif plot_type  == 'hist':
+            bin_size    = 2.5
+            lon_bins    = get_bins((-180,180),bin_size)
+            lat_bins    = get_bins((-90,90),bin_size)
+
+            hist, xb, yb = np.histogram2d(frame['md_long'],frame['md_lat'], bins=[lon_bins, lat_bins])
+
+            cmap    = matplotlib.cm.viridis
+            vmin    = 0
+            vmax    = 100
+
+            if vmin is None:
+                vmin    = 0
+
+            if vmax is None:
+                vmax    = 0.8*np.max(hist)
+                if np.sum(hist) == 0: vmax = 1.0
+
+            levels  = np.linspace(vmin,vmax,30)
+
+            norm    = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
+            pcoll   = ax.contourf(xb[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
+
+            cbar    = plt.colorbar(pcoll,ax=ax)
+            clabel  = 'Spot Density'
+            fontdict = {'size':'xx-large','weight':'normal'}
+            cbar.set_label(clabel,fontdict=fontdict)
+        elif plot_type == 'scatter':
+            cmap    = matplotlib.cm.jet
+            vmin    = 0
+            vmax    = 30
+
+            label   = 'MidPt (N = {!s})'.format(n_mids)
+            pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
+
+            cbar    = plt.colorbar(pcoll,ax=ax)
+            cdct    = prmd[xkey]
+            clabel  = cdct.get('label',xkey)
+            fontdict = {'size':'xx-large','weight':'normal'}
+            cbar.set_label(clabel,fontdict=fontdict)
+
+#            tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
+#            label   = 'TX (N = {!s})'.format(len(tx_df))
+#            tx_df.plot.scatter('tx_long', 'tx_lat', color="black", ax=ax, marker="o",label=label,zorder=20,s=1)
 #
-#        cdct    = prmd[xkey]
-#        clabel  = cdct.get('label',xkey)
-#        fontdict = {'size':'xx-large','weight':'normal'}
-#        cbar.set_label(clabel,fontdict=fontdict)
-#
-##        tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
-##        label   = 'TX (N = {!s})'.format(len(tx_df))
-##        tx_df.plot.scatter('tx_long', 'tx_lat', color="black", ax=ax, marker="o",label=label,zorder=20,s=1)
-##
-##        rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
-##        label   = 'RX (N = {!s})'.format(len(rx_df))
-##        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
+#            rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
+#            label   = 'RX (N = {!s})'.format(len(rx_df))
+#            rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
+            ax.legend(loc='lower center',ncol=3)
 
         ax.set_xlim(regions[maplim_region]['lon_lim'])
         ax.set_ylim(regions[maplim_region]['lat_lim'])
@@ -171,10 +235,9 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
         title   = '{!s} - {!s}'.format(tp0_str,tp1_str)
         ax.set_title(title)
 
+        ax.set_title('({!s})'.format(alphas[plt_inx]),loc='left',fontdict={'size':24})
         mid_dt  = time_period[0] + (time_period[1]-time_period[0])/2
-        fill_dark_side(ax,mid_dt)
-
-        ax.legend(loc='lower center',ncol=3)
+        fill_dark_side(ax,mid_dt,color='0.5',alpha=0.5)
 
     fig.tight_layout()
 

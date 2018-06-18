@@ -7,8 +7,16 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import cartopy.crs as ccrs
+import matplotlib.patches as mpatches
+#import matplotlib.markers as mmarkers
+#from matplotlib.collections import PolyCollection
 
 import datetime
+
+de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
+dxf_prop        = {'marker':'*','color':'blue'}
+dxf_leg_size    = 150
+dxf_plot_size   = 50
 
 def make_dir(path,clear=False,php=False):
     prep_output({0:path},clear=clear,php=php)
@@ -229,3 +237,43 @@ def fill_dark_side(ax, time=None, *args, **kwargs):
 
     ax.fill(x, y, transform=rotated_pole, **kwargs)
 
+def band_legend(ax,loc='lower center',markerscale=0.5,prop={'size':10},
+        title=None,bbox_to_anchor=None,rbn_rx=True,ncdxf=False,ncol=None,band_data=None):
+
+    if band_data is None:
+        band_data = BandData()
+
+    handles = []
+    labels  = []
+
+    # Force freqs to go low to high regardless of plotting order.
+    band_list   = list(band_data.band_dict.keys())
+    band_list.sort()
+    for band in band_list:
+        color   = band_data.band_dict[band]['color']
+        label   = band_data.band_dict[band]['freq_name']
+
+        count   = band_data.band_dict[band].get('count')
+        if count is not None:
+            label += '\n(n={!s})'.format(count)
+
+        handles.append(mpatches.Patch(color=color,label=label))
+        labels.append(label)
+
+    fig_tmp = plt.figure()
+    ax_tmp = fig_tmp.add_subplot(111)
+    ax_tmp.set_visible(False)
+    if rbn_rx:
+        scat = ax_tmp.scatter(0,0,s=50,**de_prop)
+        labels.append('Receiver')
+        handles.append(scat)
+    if ncdxf:
+        scat = ax_tmp.scatter(0,0,s=dxf_leg_size,**dxf_prop)
+        labels.append('NCDXF Beacon')
+        handles.append(scat)
+
+    if ncol is None:
+        ncol = len(labels)
+    
+    legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
+    return legend
