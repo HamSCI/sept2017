@@ -175,7 +175,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     pcoll   = ax.contourf(xb[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
     ax.set_ylim(ylim)
     cbar    = plt.colorbar(pcoll,ax=ax)
-    cbar.set_label('Spot Density')
+    cbar.set_label('Ham Radio\nSpot Density')
 
 def make_figure(date_str: str,xkey='ut_hrs',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
