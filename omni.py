@@ -23,7 +23,7 @@ class Omni():
             datetimes.append(dt)
         return datetimes
 
-    def plot_dst_kp(self,sTime,eTime,ax,xlabels=True):
+    def plot_dst_kp(self,sTime,eTime,ax,xkey='index',xlabels=True):
         """
         DST and Kp
         """
@@ -35,7 +35,10 @@ class Omni():
 
         lines       =[]
 
-        xx = ut_hrs
+        if xkey == 'index':
+            xx  = df.index
+        else:
+            xx = ut_hrs
         yy = df['Dst_nT'].tolist()
 
         tmp,        = ax.plot(xx,yy,label='Dst [nT]',color='k')
@@ -54,7 +57,11 @@ class Omni():
         high_color  = 'red'
         label       = 'Kp'
 
-        xvals       = np.array(ut_hrs)
+        if xkey == 'index':
+            xvals       = df.index
+        else:
+            xvals       = np.array(ut_hrs)
+
         kp          = np.array(df['Kp'].tolist())
 
         if len(kp) > 0:

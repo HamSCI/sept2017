@@ -309,7 +309,7 @@ def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin
     title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
     ax.set_title(title)
 
-def goes_plot(goes_data,sTime=None,eTime=None,ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None,ax=None):
+def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None,ax=None,**kwargs):
     """Plot GOES X-Ray Data.
 
     Parameters
@@ -351,20 +351,23 @@ def goes_plot(goes_data,sTime=None,eTime=None,ymin=1e-9,ymax=1e-2,legendSize=10,
     if sTime is None: sTime = goes_data['xray'].index.min()
     if eTime is None: eTime = goes_data['xray'].index.max()
 
-    var_tags = ['A_AVG','B_AVG']
-    for var_tag in var_tags:
-        ax.plot(goes_data['xray'].index,goes_data['xray'][var_tag],label=goes_data['metadata']['variables'][var_tag]['long_label'])
+    xx = goes_data['xray'].index
+    for var_inx,var_tag in enumerate(var_tags):
+        if labels is None:
+            label   = goes_data['metadata']['variables'][var_tag]['long_label']
+        else:
+            label   = labels[var_inx]
+        ax.plot(xx,goes_data['xray'][var_tag],label=label,**kwargs)
 
-
-    #Format the x-axis
-    if eTime - sTime > datetime.timedelta(days=1):
-        ax.xaxis.set_major_formatter(
-                matplotlib.dates.DateFormatter('%H%M\n%d %b %Y')
-                )
-    else:
-        ax.xaxis.set_major_formatter(
-                matplotlib.dates.DateFormatter('%H%M')
-                )
+#    #Format the x-axis
+#    if eTime - sTime > datetime.timedelta(days=1):
+#        ax.xaxis.set_major_formatter(
+#                matplotlib.dates.DateFormatter('%H%M\n%d %b %Y')
+#                )
+#    else:
+#        ax.xaxis.set_major_formatter(
+#                matplotlib.dates.DateFormatter('%H%M')
+#                )
 
     sTime_label = sTime.strftime('%Y %b %d')
     eTime_label = eTime.strftime('%Y %b %d')
@@ -398,8 +401,6 @@ def goes_plot(goes_data,sTime=None,eTime=None,ymin=1e-9,ymax=1e-2,legendSize=10,
     md      = goes_data['metadata'][file_keys[-1]]
     title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
     ax.set_title(title)
-    return fig
-
 
 def __split_sci(value):
     """Split scientific notation into (coefficient,power).
