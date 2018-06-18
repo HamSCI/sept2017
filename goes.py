@@ -230,17 +230,18 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
 
     return data_dict
 
-def goes_plot_hr(goes_data,ax,xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None):
+def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,
+        legendSize=10,legendLoc=None,labels=None):
     """Plot GOES X-Ray Data.
 
     Parameters
     ----------
-    goes_data : dict
+    goes_data   : dict
         data dictionary returned by read_goes()
-    sTime : Optional[datetime.datetime]
-        object for start of plotting.
-    eTime : Optional[datetime.datetime]
-        object for end of plotting.
+    ax          : matplotlib.axes
+    var_tags    : List of variables, i.e. ['A_AVG','B_AVG']
+        'A_AVG' --> X-Ray (0.05-0.4 nm) Irradiance [W/m^2]
+        'B_AVG' --> X-Ray (0.1 -0.8 nm) Irradiance [W/m^2]
     ymin : Optional[float]
         Y-Axis minimum limit
     ymax : Optional[float]
@@ -248,7 +249,6 @@ def goes_plot_hr(goes_data,ax,xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,legen
     legendSize : Optional[int]
         Character size of the legend
     legendLoc : Optional[ ]
-    ax : Optional[ ]
 
     Returns
     -------
@@ -264,9 +264,12 @@ def goes_plot_hr(goes_data,ax,xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,legen
 
     """
     xx  = goes_data['xray'][xkey]
-    var_tags = ['A_AVG','B_AVG']
-    for var_tag in var_tags:
-        ax.plot(xx,goes_data['xray'][var_tag],label=goes_data['metadata']['variables'][var_tag]['long_label'])
+    for var_inx,var_tag in enumerate(var_tags):
+        if labels is None:
+            label   = goes_data['metadata']['variables'][var_tag]['long_label']
+        else:
+            label   = labels[var_inx]
+        ax.plot(xx,goes_data['xray'][var_tag],label=label)
 
     ax.set_xlim(xlim)
 
