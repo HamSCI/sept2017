@@ -202,6 +202,11 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
         else:
             df_xray = df_xray.append(df_tmp)
 
+        keys    = ['A_AVG','B_AVG']
+        for key in keys:
+            tf  = df_xray[key]  == -99999
+            df_xray[key][tf]    = np.nan
+
         #Store info about units
         for var in (myVars+orbit_vars):
             data_dict['metadata']['variables'][var] = {}
@@ -231,7 +236,7 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
     return data_dict
 
 def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,
-        legendSize=10,legendLoc=None,labels=None):
+        legendSize=10,legendLoc=None,labels=None,**kwargs):
     """Plot GOES X-Ray Data.
 
     Parameters
@@ -269,7 +274,7 @@ def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin
             label   = goes_data['metadata']['variables'][var_tag]['long_label']
         else:
             label   = labels[var_inx]
-        ax.plot(xx,goes_data['xray'][var_tag],label=label)
+        ax.plot(xx,goes_data['xray'][var_tag],label=label,**kwargs)
 
     ax.set_xlim(xlim)
 

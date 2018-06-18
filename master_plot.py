@@ -253,7 +253,7 @@ def make_figure(date_str: str,xkey='ut_hrs',
     for sat_nr,gd in goes_dcts.items():
         goes.goes_plot_hr(gd['data'],ax,
                 var_tags=gd['var_tags'],labels=gd['labels'],
-                xkey=xkey,legendLoc='upper right',legendSize=15)
+                xkey=xkey,legendLoc='upper right',legendSize=15,lw=2)
 
 #    with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
 #        fl.write(flares.to_string())
