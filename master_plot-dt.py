@@ -1,7 +1,10 @@
 #!/usr/bin/python3
 
 import os
-
+import sys
+import time
+import datetime
+import multiprocessing as mp
 from collections import OrderedDict
 
 import matplotlib
@@ -9,25 +12,23 @@ matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
-import datetime
-import cartopy.crs as ccrs
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import sys
-import time
+import cartopy.crs as ccrs
 
-import multiprocessing as mp
+import tqdm
 
 import geopack
 from timeutils import daterange
-from gen_lib import prep_output, BandData
+import gen_lib
+from gen_lib import regions
 import goes
 from omni import Omni
 
-sources     = OrderedDict()
-sources[0]  = "dxcluster"
-sources[1]  = "WSPRNet"
-sources[2]  = "RBN"
+#sources     = OrderedDict()
+#sources[0]  = "dxcluster"
+#sources[1]  = "WSPRNet"
+#sources[2]  = "RBN"
 
 rcp = matplotlib.rcParams
 rcp['figure.titlesize']     = 'xx-large'
@@ -40,7 +41,6 @@ rcp['legend.fontsize']      = 'large'
 rcp['figure.titleweight']   = 'bold'
 rcp['axes.titleweight']     = 'bold'
 rcp['axes.labelweight']     = 'bold'
-
 
 # Parameter Dictionary
 prmd = {}
@@ -56,45 +56,13 @@ tmp = {}
 tmp['label']            = 'UT Hours'
 prmd['occurred']        = tmp
 
-# Region Dictionary
-regions = {}
-tmp     = {}
-tmp['lon_lim']  = (-180.,180.)
-tmp['lat_lim']  = ( -90., 90.)
-regions['World']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = (-130.,-60.)
-tmp['lat_lim']  = (  20., 55.)
-regions['US']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -15., 55.)
-tmp['lat_lim']  = (  30., 65.)
-regions['Europe']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -90.,-60.)
-tmp['lat_lim']  = (  15., 30.)
-regions['Carribean']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -110.,-30.)
-tmp['lat_lim']  = (    0., 45.)
-regions['Greater Carribean']    = tmp
-
-CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
-band_obj        = BandData()
+band_obj        = gen_lib.BandData()
 BANDS           = band_obj.band_dict
 
 def get_bins(lim, bin_size):
     """ Helper function to split a limit into bins of the proper size """
     bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
     return bins
-
-def hours_from_dt64(dt64, date_):
-    """ Take a datetime64 and return the value in decimal hours"""
-    return (dt64 - date_).astype(float) / 3600
 
 def adjust_axes(ax_0,ax_1):
     """
@@ -144,7 +112,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # y-axis: distance (km)
     ybins = get_bins(ylim, 500)
 
-    # TODO: Clean this bit up, namely the hours_from_dt64 setup
     tmp = df[xkey] - df[xkey].min()
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
     if len(df[xkey]) > 1:
@@ -208,67 +175,34 @@ def make_figure(sTime,eTime,xkey='occurred',
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
-#    sTime           = datetime.datetime.strptime(date_str,'%Y-%m-%d')
-#    eTime           = sTime + datetime.timedelta(days=1)
-
-#    rgc_lim             = (0, 3000)
-##    rgc_lim             = (0, 10000)
-##    maplim_region       = 'World'
-#    maplim_region       = 'Greater Carribean'
-#    filter_region       = 'Carribean'
-#    filter_region_kind  = 'endpoints'
-
-    df  = pd.DataFrame()
-    for dt in daterange(sTime, eTime):
-        date_str    = dt.strftime("%Y-%m-%d")
-        dft         = pd.read_csv(CSV_FILE_PATH.format(date_str))
-        tf          = dft.source > 0
-        df          = df.append(dft[tf],ignore_index=True)
-
     date_str_0  = sTime.strftime('%d %b %Y')
     date_str_1  = eTime.strftime('%d %b %Y')
     date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
 
-    df["occurred"]  = pd.to_datetime(df["occurred"])
-#    df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
-
-    # Path Length Filtering
-    if rgc_lim is not None:
-        tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
-                             df['dist_Km'] <  rgc_lim[1])
-        df  = df[tf].copy()
-
-    cols = list(df) + ["md_lat", "md_long"]
-    df = df.reindex(columns=cols)
-    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
-    df['md_lat']    = midpoints[0]
-    df['md_long']   = midpoints[1]
-
-    # Regional Filtering
-    if filter_region is not None:
-        df      = regional_filter(filter_region,df,kind=filter_region_kind)
-
-#    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+    print('Loading CSVs...')
+    df  = pd.DataFrame()
+    for dt in tqdm.tqdm(list(daterange(sTime, eTime))):
+        dft         = gen_lib.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
+                        filter_region=filter_region,filter_region_kind=filter_region_kind)
+        df          = df.append(dft,ignore_index=True)
 
     # Plotting #############################
+    print('Plotting...')
 
     nx  = 5
     ny  = len(BANDS)+2
     nn  = 0
 
     sf  = 1.00  # Scale Factor
-#    fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
     fig = plt.figure(figsize=(sf*40, sf*4*len(BANDS)))
 
     # Geospace Environment ####################
     axs_to_adjust   = []
     nn              += 2
     omni            = Omni()
-#    ax              = fig.add_subplot(ny,nx,nn)
     ax              = plt.subplot2grid((ny,nx),(0,1),colspan=nx-1)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True)
     axs_to_adjust   += omni_axs
-
 
     ########################################
     goes_dcts       = OrderedDict()
@@ -282,7 +216,6 @@ def make_figure(sTime,eTime,xkey='occurred',
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
     nn              += 2
-#    ax              = fig.add_subplot(ny,nx,nn)
     ax              = plt.subplot2grid((ny,nx),(1,1),colspan=nx-1)
     xdct            = prmd[xkey]
     xlabel          = xdct.get('label',xkey)
@@ -290,10 +223,6 @@ def make_figure(sTime,eTime,xkey='occurred',
         goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
                 var_tags=gd['var_tags'],labels=gd['labels'],
                 legendLoc='upper right',legendSize=15,lw=2)
-
-#        goes.goes_plot_hr(gd['data'],ax,
-#                var_tags=gd['var_tags'],labels=gd['labels'],
-#                xkey=xkey,legendLoc='upper right',legendSize=15,lw=2)
 
 #    with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
 #        fl.write(flares.to_string())
@@ -324,7 +253,6 @@ def make_figure(sTime,eTime,xkey='occurred',
 
         # Histograms ########################### 
         nn      = fig_row*nx + 2
-#        ax      = fig.add_subplot(ny,nx,nn)
         ax      = plt.subplot2grid((ny,nx),(fig_row,1),colspan=nx-1)
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
@@ -340,22 +268,14 @@ def make_figure(sTime,eTime,xkey='occurred',
         hist_ax = ax
 
         if calc_hist_maxes:
-#            if 'hist_maxes' not in band.keys():
-#                band['hist_maxes'] = []
-#            band['hist_maxes'].append(np.max(hist))
             hist_maxes[band_key]    = np.max(hist)
             continue
         
         #    # Map ################################## 
         nn      = fig_row*nx + 1
-
-#        ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
         ax = plt.subplot2grid((ny,nx),(fig_row,0),projection=ccrs.PlateCarree())
         ax.coastlines()
         ax.gridlines()
-
-#        label   = 'MidPt (N = {!s})'.format(n_mids)
-#        frame.plot.scatter('md_long', 'md_lat', color=color, ax=ax, marker="o",label=label,zorder=10,s=10)
 
         cmap    = matplotlib.cm.jet
         vmin    = 0
@@ -390,11 +310,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         ax.set_xlim(regions[maplim_region]['lon_lim'])
         ax.set_ylim(regions[maplim_region]['lat_lim'])
         label   = 'Midpoints (N = {!s})'.format(n_mids)
-#        ax.set_xlabel(label)
         fdict   = {'size':24}
         ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
-
-#        ax.legend(loc='lower center',ncol=3)
 
     if calc_hist_maxes:
         plt.close(fig)
@@ -436,11 +353,6 @@ def calculate_limits(run_dcts):
         this_rdcts.append(tmp)
     run_dcts    = this_rdcts
 
-#    results = []
-#    for run_dct in run_dcts:
-#        result  = plot_wrapper(run_dct)
-#        results.append(result)
-
     with mp.Pool() as pool:
         results = pool.map(plot_wrapper,run_dcts)
 
@@ -454,8 +366,8 @@ def calculate_limits(run_dcts):
         band['vmax']    = np.percentile(band['hist_maxes'],85)
 
 if __name__ == "__main__":
-    output_dir  = 'output/galleries/hist'
-    prep_output({0:output_dir},clear=True,php=True)
+    output_dir  = 'output/galleries/summary-multiday'
+    gen_lib.prep_output({0:output_dir},clear=True,php=True)
     test_configuration  = True
     global_cbars        = False
 

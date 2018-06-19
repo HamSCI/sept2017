@@ -370,15 +370,15 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
                              df['dist_Km'] <  rgc_lim[1])
         df  = df[tf].copy()
 
-    # Regional Filtering
-    if filter_region is not None:
-        df      = regional_filter(filter_region,df,kind=filter_region_kind)
-
 #    cols = list(df) + ["md_lat", "md_long"]
 #    df = df.reindex(columns=cols)
     midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
     df['md_lat']    = midpoints[0]
     df['md_long']   = midpoints[1]
+
+    # Regional Filtering
+    if filter_region is not None:
+        df      = regional_filter(filter_region,df,kind=filter_region_kind)
 
     df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
