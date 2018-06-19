@@ -1,22 +1,49 @@
 import shutil,os
-
+import datetime
 from collections import OrderedDict
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import cartopy.crs as ccrs
 import matplotlib.patches as mpatches
-#import matplotlib.markers as mmarkers
-#from matplotlib.collections import PolyCollection
 
-import datetime
+import numpy as np
+import pandas as pd
+
+import geopack
 
 de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
 dxf_prop        = {'marker':'*','color':'blue'}
 dxf_leg_size    = 150
 dxf_plot_size   = 50
+
+# Region Dictionary
+regions = {}
+tmp     = {}
+tmp['lon_lim']  = (-180.,180.)
+tmp['lat_lim']  = ( -90., 90.)
+regions['World']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = (-130.,-60.)
+tmp['lat_lim']  = (  20., 55.)
+regions['US']   = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -15., 55.)
+tmp['lat_lim']  = (  30., 65.)
+regions['Europe']   = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -90.,-60.)
+tmp['lat_lim']  = (  15., 30.)
+regions['Carribean']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -110.,-30.)
+tmp['lat_lim']  = (    0., 45.)
+regions['Greater Carribean']    = tmp
 
 def make_dir(path,clear=False,php=False):
     prep_output({0:path},clear=clear,php=php)
@@ -277,3 +304,84 @@ def band_legend(ax,loc='lower center',markerscale=0.5,prop={'size':10},
     
     legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
     return legend
+
+def regional_filter(region,df,kind='mids'):
+    rgnd    = regions[region]
+    lat_lim = rgnd['lat_lim']
+    lon_lim = rgnd['lon_lim']
+
+    if kind == 'mids':
+        tf_md_lat   = np.logical_and(df.md_lat >= lat_lim[0], df.md_lat < lat_lim[1])
+        tf_md_long  = np.logical_and(df.md_long >= lon_lim[0], df.md_long < lon_lim[1])
+        tf_0        = np.logical_and(tf_md_lat,tf_md_long)
+        tf          = tf_0
+        df          = df[tf].copy()
+    elif kind == 'endpoints':
+        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_lim[0], df.rx_lat < lat_lim[1])
+        tf_rx_long  = np.logical_and(df.rx_long >= lon_lim[0], df.rx_long < lon_lim[1])
+        tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
+
+        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_lim[0], df.tx_lat < lat_lim[1])
+        tf_tx_long  = np.logical_and(df.tx_long >= lon_lim[0], df.tx_long < lon_lim[1])
+        tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
+        tf          = np.logical_or(tf_rx,tf_tx)
+
+        df          = df[tf].copy()
+
+    return df
+
+def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
+        rgc_lim=None,filter_region=None,filter_region_kind='mids'):
+    """
+    Load spots from CSV file and filter for network/location source quality.
+    Also provide range and regional filtering, compute midpoints, ut_hrs,
+    and slt_mid.
+
+    data_sources: list, i.e. [1,2]
+        0: dxcluster
+        1: WSPRNet
+        2: RBN
+
+    loc_sources: list, i.e. ['P','Q']
+        P: user Provided
+        Q: QRZ.com or HAMCALL
+        E: Estimated using prefix
+    """
+
+    CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
+    df              = pd.read_csv(CSV_FILE_PATH.format(date_str),parse_dates=['occurred'])
+
+    # Select spotting networks
+    if data_sources is not None:
+        tf  = df.source.map(lambda x: x in data_sources)
+        df  = df[tf].copy()
+
+    # Filter location source
+    if loc_sources is not None:
+        tf  = df.tx_loc_source.map(lambda x: x in loc_sources)
+        df  = df[tf].copy()
+
+        tf  = df.rx_loc_source.map(lambda x: x in loc_sources)
+        df  = df[tf].copy()
+
+    # Path Length Filtering
+    if rgc_lim is not None:
+        tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
+                             df['dist_Km'] <  rgc_lim[1])
+        df  = df[tf].copy()
+
+    # Regional Filtering
+    if filter_region is not None:
+        df      = regional_filter(filter_region,df,kind=filter_region_kind)
+
+#    cols = list(df) + ["md_lat", "md_long"]
+#    df = df.reindex(columns=cols)
+    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
+    df['md_lat']    = midpoints[0]
+    df['md_long']   = midpoints[1]
+
+    df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
+    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+
+    return df
+

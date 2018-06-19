@@ -20,14 +20,15 @@ import multiprocessing as mp
 
 import geopack
 from timeutils import daterange
-from gen_lib import prep_output, BandData
 import goes
 from omni import Omni
+import gen_lib
+from gen_lib import regions
 
-sources     = OrderedDict()
-sources[0]  = "dxcluster"
-sources[1]  = "WSPRNet"
-sources[2]  = "RBN"
+#sources     = OrderedDict()
+#sources[0]  = "dxcluster"
+#sources[1]  = "WSPRNet"
+#sources[2]  = "RBN"
 
 rcp = matplotlib.rcParams
 rcp['figure.titlesize']     = 'xx-large'
@@ -52,45 +53,13 @@ tmp = {}
 tmp['label']            = 'UT Hours'
 prmd['ut_hrs']          = tmp
 
-# Region Dictionary
-regions = {}
-tmp     = {}
-tmp['lon_lim']  = (-180.,180.)
-tmp['lat_lim']  = ( -90., 90.)
-regions['World']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = (-130.,-60.)
-tmp['lat_lim']  = (  20., 55.)
-regions['US']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -15., 55.)
-tmp['lat_lim']  = (  30., 65.)
-regions['Europe']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -90.,-60.)
-tmp['lat_lim']  = (  15., 30.)
-regions['Carribean']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -110.,-30.)
-tmp['lat_lim']  = (    0., 45.)
-regions['Greater Carribean']    = tmp
-
-CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
-band_obj        = BandData()
+band_obj        = gen_lib.BandData()
 BANDS           = band_obj.band_dict
 
 def get_bins(lim, bin_size):
     """ Helper function to split a limit into bins of the proper size """
     bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
     return bins
-
-def hours_from_dt64(dt64, date_):
-    """ Take a datetime64 and return the value in decimal hours"""
-    return (dt64 - date_).astype(float) / 3600
 
 def adjust_axes(ax_0,ax_1):
     """
@@ -102,30 +71,6 @@ def adjust_axes(ax_0,ax_1):
     ax_0_pos[2] = ax_1_pos[2]
     ax_0.set_position(ax_0_pos)
 
-def regional_filter(region,df,kind='mids'):
-    rgnd    = regions[region]
-    lat_lim = rgnd['lat_lim']
-    lon_lim = rgnd['lon_lim']
-
-    if kind == 'mids':
-        tf_md_lat   = np.logical_and(df.md_lat >= lat_lim[0], df.md_lat < lat_lim[1])
-        tf_md_long  = np.logical_and(df.md_long >= lon_lim[0], df.md_long < lon_lim[1])
-        tf_0        = np.logical_and(tf_md_lat,tf_md_long)
-        tf          = tf_0
-        df          = df[tf].copy()
-    elif kind == 'endpoints':
-        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_lim[0], df.rx_lat < lat_lim[1])
-        tf_rx_long  = np.logical_and(df.rx_long >= lon_lim[0], df.rx_long < lon_lim[1])
-        tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
-
-        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_lim[0], df.tx_lat < lat_lim[1])
-        tf_tx_long  = np.logical_and(df.tx_long >= lon_lim[0], df.tx_long < lon_lim[1])
-        tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
-        tf          = np.logical_or(tf_rx,tf_tx)
-
-        df          = df[tf].copy()
-
-    return df
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
@@ -137,7 +82,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # y-axis: distance (km)
     ybins = get_bins(ylim, 500)
 
-    # TODO: Clean this bit up, namely the hours_from_dt64 setup
     if len(df[xkey]) > 1:
         hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
     else:
@@ -196,38 +140,12 @@ def make_figure(date_str: str,xkey='ut_hrs',
     xkey:   {'slt_mid','ut_hrs'}
     """
 
-#    rgc_lim             = (0, 3000)
-##    rgc_lim             = (0, 10000)
-##    maplim_region       = 'World'
-#    maplim_region       = 'Greater Carribean'
-#    filter_region       = 'Carribean'
-#    filter_region_kind  = 'endpoints'
-
-    df = pd.read_csv(CSV_FILE_PATH.format(date_str))
-
-    df["occurred"]  = pd.to_datetime(df["occurred"])
-    df["ut_hrs"]    = hours_from_dt64(df["occurred"].values.astype("M8[s]"), np.datetime64(date_str))
-
-    # Path Length Filtering
-    if rgc_lim is not None:
-        tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
-                             df['dist_Km'] <  rgc_lim[1])
-        df  = df[tf].copy()
-
-    cols = list(df) + ["md_lat", "md_long"]
-    df = df.reindex(columns=cols)
-    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
-    df['md_lat']    = midpoints[0]
-    df['md_long']   = midpoints[1]
-
-    # Regional Filtering
-    if filter_region is not None:
-        df      = regional_filter(filter_region,df,kind=filter_region_kind)
-
-    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+    print('Loading {!s}...'.format(date_str))
+    df      = gen_lib.load_spots_csv(date_str,rgc_lim=rgc_lim,
+                    filter_region=filter_region,filter_region_kind=filter_region_kind)
 
     # Plotting #############################
-
+    print('Plotting {!s}...'.format(date_str))
     nx  = 2
     ny  = len(BANDS)+2
     nn  = 0
@@ -243,7 +161,7 @@ def make_figure(date_str: str,xkey='ut_hrs',
     nn              += 2
     omni            = Omni()
     ax              = fig.add_subplot(ny,nx,nn)
-    omni_axs        = omni.plot_dst_kp(sDate,eDate,ax,xlabels=False)
+    omni_axs        = omni.plot_dst_kp(sDate,eDate,ax,xkey='ut_hrs',xlabels=False)
     axs_to_adjust   += omni_axs
 
 
@@ -419,7 +337,7 @@ def calculate_limits(run_dcts):
 
 if __name__ == "__main__":
     output_dir  = 'output/galleries/hist'
-    prep_output({0:output_dir},clear=True,php=True)
+    gen_lib.prep_output({0:output_dir},clear=True,php=True)
     test_configuration  = True
     global_cbars        = False
 
