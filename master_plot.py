@@ -90,7 +90,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(date_str: str,xkey='ut_hrs',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -224,6 +224,16 @@ def make_figure(date_str: str,xkey='ut_hrs',
 #        rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
+
+        if box is not None:
+            rgn = gl.regions.get(box)
+            x0  = rgn['lon_lim'][0]
+            y0  = rgn['lat_lim'][0]
+            ww  = rgn['lon_lim'][1] - x0
+            hh  = rgn['lat_lim'][1] - y0
+            
+            p   = matplotlib.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=500)
+            ax.add_patch(p)
 
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])

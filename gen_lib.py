@@ -71,8 +71,8 @@ tmp['lat_lim']  = (  15., 30.)
 regions['Carribean']    = tmp
 
 tmp     = {}
-tmp['lon_lim']  = ( -110.,-30.)
-tmp['lat_lim']  = (    0., 45.)
+tmp['lon_lim']  = ( -120.,0.)
+tmp['lat_lim']  = (  -20., 60.)
 regions['Greater Carribean']    = tmp
 
 sources     = OrderedDict()

@@ -10,33 +10,7 @@ import cartopy.crs as ccrs
 import numpy as np
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
-from gen_lib import prep_output
-
-regions = {}
-tmp     = {}
-tmp['lon_lim']  = (-180.,180.)
-tmp['lat_lim']  = ( -90., 90.)
-regions['World']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = (-130.,-60.)
-tmp['lat_lim']  = (  20., 55.)
-regions['US']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -15., 55.)
-tmp['lat_lim']  = (  30., 65.)
-regions['Europe']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -90.,-60.)
-tmp['lat_lim']  = (  15., 30.)
-regions['Carribean']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -110.,-30.)
-tmp['lat_lim']  = (    0., 45.)
-regions['Greater Carribean']    = tmp
+import gen_lib as gl
 
 goess   = OrderedDict()
 tmp     = {}
@@ -53,14 +27,14 @@ tmp['label']    = key
 tmp['color']    = 'red'
 goess[key]      = tmp
 
-def plot_map(maplim_region='World',output_dir='output',plot_goes=False):
+def plot_map(maplim_region='World',output_dir='output',plot_goes=False,box=None):
     projection  = ccrs.PlateCarree()
 
     fig = plt.figure(figsize=(10,8))
     ax  = fig.add_subplot(1,1,1, projection=projection)
 
-    ax.set_xlim(regions[maplim_region]['lon_lim'])
-    ax.set_ylim(regions[maplim_region]['lat_lim'])
+    ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+    ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
     ax.coastlines()
     ax.gridlines(draw_labels=True)
@@ -74,6 +48,16 @@ def plot_map(maplim_region='World',output_dir='output',plot_goes=False):
             ax.axvline(lon,ls='--',label=label,color=color)
         ax.legend(loc='lower right')
 
+    if box is not None:
+        rgn = gl.regions.get(box)
+        x0  = rgn['lon_lim'][0]
+        y0  = rgn['lat_lim'][0]
+        ww  = rgn['lon_lim'][1] - x0
+        hh  = rgn['lat_lim'][1] - y0
+        
+        p   = matplotlib.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=500)
+        ax.add_patch(p)
+
     fname   = 'map-{!s}.png'.format(maplim_region)
     fpath   = os.path.join(output_dir,fname)
     fig.savefig(fpath,bbox_inches='tight')
@@ -81,12 +65,13 @@ def plot_map(maplim_region='World',output_dir='output',plot_goes=False):
 
 if __name__ == '__main__':
     output_dir  = 'output/galleries/map_check'
-    prep_output({0:output_dir},clear=False,php=False)
+    gl.prep_output({0:output_dir},clear=False,php=False)
 
 
     run_dcts = []
     rd = {}
     rd['maplim_region'] = 'World'
+    rd['box']           = 'Greater Carribean'
     rd['plot_goes']     = True
     rd['output_dir']    = output_dir
     run_dcts.append(rd)

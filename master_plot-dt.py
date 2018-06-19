@@ -105,7 +105,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -240,6 +240,16 @@ def make_figure(sTime,eTime,xkey='occurred',
 #        rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
+    
+        if box is not None:
+            rgn = gl.regions.get(box)
+            x0  = rgn['lon_lim'][0]
+            y0  = rgn['lat_lim'][0]
+            ww  = rgn['lon_lim'][1] - x0
+            hh  = rgn['lat_lim'][1] - y0
+            
+            p   = matplotlib.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=500)
+            ax.add_patch(p)
 
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
@@ -367,19 +377,6 @@ if __name__ == "__main__":
     dct['filter_region_kind']   = 'endpoints'
     dct['output_dir']           = output_dir
     dct['log_hist']             = True
-    run_dcts.append(dct)
-
-    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 4)
-#    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['sTime']                = datetime.datetime(2017, 9, 6)
-    dct['eTime']                = datetime.datetime(2017, 9, 10)
-    dct['rgc_lim']              = (0,10000)
-    dct['maplim_region']        = 'Greater Carribean'
-    dct['filter_region']        = 'Carribean'
-    dct['filter_region_kind']   = 'endpoints'
-    dct['output_dir']           = output_dir
-    dct['log_hist']             = False
     run_dcts.append(dct)
 
     if test_configuration:
