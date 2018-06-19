@@ -154,6 +154,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         yb      = ybins
         hist    = np.zeros((len(xb)-1,len(yb)-1))
 
+    vm_scale    = 0.6
     if log_hist:
         tf          = hist >= 1
         tmp         = np.log10(hist[tf])
@@ -161,6 +162,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         hist_1      = hist*0.
         hist_1[tf]  = tmp
         hist        = hist_1
+        vm_scale    = 0.8
 
     if calc_hist_maxes:
         return hist
@@ -183,7 +185,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         vmin    = 0
 
     if vmax is None:
-        vmax    = 0.8*np.max(hist)
+        vmax    = vm_scale*np.max(hist)
         if np.sum(hist) == 0: vmax = 1.0
 
     levels  = np.linspace(vmin,vmax,15)
@@ -250,20 +252,20 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     # Plotting #############################
 
-    nx  = 4
+    nx  = 5
     ny  = len(BANDS)+2
     nn  = 0
 
     sf  = 1.00  # Scale Factor
 #    fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
-    fig = plt.figure(figsize=(sf*60, sf*4*len(BANDS)))
+    fig = plt.figure(figsize=(sf*40, sf*4*len(BANDS)))
 
     # Geospace Environment ####################
     axs_to_adjust   = []
     nn              += 2
     omni            = Omni()
 #    ax              = fig.add_subplot(ny,nx,nn)
-    ax              = plt.subplot2grid((ny,nx),(0,1),colspan=3)
+    ax              = plt.subplot2grid((ny,nx),(0,1),colspan=nx-1)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True)
     axs_to_adjust   += omni_axs
 
@@ -281,7 +283,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     nn              += 2
 #    ax              = fig.add_subplot(ny,nx,nn)
-    ax              = plt.subplot2grid((ny,nx),(1,1),colspan=3)
+    ax              = plt.subplot2grid((ny,nx),(1,1),colspan=nx-1)
     xdct            = prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     for sat_nr,gd in goes_dcts.items():
@@ -323,7 +325,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         # Histograms ########################### 
         nn      = fig_row*nx + 2
 #        ax      = fig.add_subplot(ny,nx,nn)
-        ax      = plt.subplot2grid((ny,nx),(fig_row,1),colspan=3)
+        ax      = plt.subplot2grid((ny,nx),(fig_row,1),colspan=nx-1)
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
         vmin    = band.get('vmin')
@@ -333,7 +335,7 @@ def make_figure(sTime,eTime,xkey='occurred',
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist)
 
         fdict   = {'size':35,'weight':'bold'}
-        ax.text(-0.1725,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
+        ax.text(-0.075,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
 
         hist_ax = ax
 
@@ -348,11 +350,11 @@ def make_figure(sTime,eTime,xkey='occurred',
         nn      = fig_row*nx + 1
 
 #        ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
-        ax = plt.subplot2grid((ny,nx),(fig_row,0),colspan=1,projection=ccrs.PlateCarree())
+        ax = plt.subplot2grid((ny,nx),(fig_row,0),projection=ccrs.PlateCarree())
         ax.coastlines()
         ax.gridlines()
 
-        label   = 'MidPt (N = {!s})'.format(n_mids)
+#        label   = 'MidPt (N = {!s})'.format(n_mids)
 #        frame.plot.scatter('md_long', 'md_lat', color=color, ax=ax, marker="o",label=label,zorder=10,s=10)
 
         cmap    = matplotlib.cm.jet
@@ -368,6 +370,7 @@ def make_figure(sTime,eTime,xkey='occurred',
             yy  = np.array([0,0])
             cc  = np.array([0,0])
 
+        pcoll   = ax.scatter(xx,yy,color='blue',marker="o",zorder=10,s=5)
 #        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
 #        cbar    = plt.colorbar(pcoll,ax=ax)
 #
@@ -386,8 +389,12 @@ def make_figure(sTime,eTime,xkey='occurred',
 
         ax.set_xlim(regions[maplim_region]['lon_lim'])
         ax.set_ylim(regions[maplim_region]['lat_lim'])
+        label   = 'Midpoints (N = {!s})'.format(n_mids)
+#        ax.set_xlabel(label)
+        fdict   = {'size':24}
+        ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
 
-        ax.legend(loc='lower center',ncol=3)
+#        ax.legend(loc='lower center',ncol=3)
 
     if calc_hist_maxes:
         plt.close(fig)
@@ -402,7 +409,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     fdict   = {'size':50,'weight':'bold'}
     title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
-    fig.text(0.265,0.925,title,fontdict=fdict)
+    fig.text(0.030,0.925,title,fontdict=fdict)
 
     if fname is None:
         fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
@@ -454,35 +461,33 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-#    dct = {}
-#    dct['date_str']             = '2017-09-06'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'Europe'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-06-EU.png'
-#    run_dcts.append(dct)
-#
-#    dct = {}
-#    dct['date_str']             = '2017-09-06'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'US'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-06-US.png'
-#    run_dcts.append(dct)
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
 
-#    dct = {}
-#    dct['date_str']             = '2017-09-08'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'World'
-#    dct['filter_region']        = None
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-08.png'
-#    run_dcts.append(dct)
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'US'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'World'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 4)
