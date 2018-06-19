@@ -42,7 +42,7 @@ class Omni():
             xlim    = (sTime,eTime)
         else:
             xx      = ut_hrs
-            xlim    = (to_ut_hr(sTime), to_ut_hr(eTime))
+            xlim    = (to_ut_hr(sTime), (eTime-sTime).total_seconds()/3600.)
         yy = df['Dst_nT'].tolist()
 
         tmp,        = ax.plot(xx,yy,label='Dst [nT]',color='k')
