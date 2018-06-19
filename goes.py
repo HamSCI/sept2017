@@ -284,7 +284,7 @@ def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin
     decades = [  8,   7,   6,   5,   4]
 
     for cls,dec in zip(classes,decades):
-        ax.text(1.01,2.5*10**(-dec),cls,transform=trans)
+        ax.text(1.01,2.5*10**(-dec),cls,transform=trans,fontdict={'size':14})
 
     #Format the y-axis
     ax.set_ylabel(r'W m$^{-2}$')
@@ -307,7 +307,7 @@ def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin
     file_keys.sort()
     md      = goes_data['metadata'][file_keys[-1]]
     title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
-    ax.set_title(title)
+#    ax.set_title(title)
 
 def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None,ax=None,**kwargs):
     """Plot GOES X-Ray Data.
@@ -376,7 +376,7 @@ def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,y
     else:
         time_label = sTime_label + ' - ' + eTime_label
 
-    ax.set_xlabel('\n'.join([time_label,'Time [UT]']))
+#    ax.set_xlabel('\n'.join([time_label,'Time [UT]']))
     ax.set_xlim(sTime,eTime)
 
     #Label Flare classes
@@ -385,7 +385,7 @@ def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,y
     decades = [  8,   7,   6,   5,   4]
 
     for cls,dec in zip(classes,decades):
-        ax.text(1.01,2.5*10**(-dec),cls,transform=trans)
+        ax.text(1.01,2.5*10**(-dec),cls,transform=trans,fontdict={'size':14})
 
     #Format the y-axis
     ax.set_ylabel(r'W m$^{-2}$')
@@ -400,7 +400,7 @@ def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,y
     file_keys.sort()
     md      = goes_data['metadata'][file_keys[-1]]
     title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
-    ax.set_title(title)
+#    ax.set_title(title)
 
 def __split_sci(value):
     """Split scientific notation into (coefficient,power).

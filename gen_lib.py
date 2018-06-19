@@ -18,6 +18,32 @@ dxf_prop        = {'marker':'*','color':'blue'}
 dxf_leg_size    = 150
 dxf_plot_size   = 50
 
+rcp = matplotlib.rcParams
+rcp['figure.titlesize']     = 'xx-large'
+rcp['axes.titlesize']       = 'xx-large'
+rcp['axes.labelsize']       = 'xx-large'
+rcp['xtick.labelsize']      = 'xx-large'
+rcp['ytick.labelsize']      = 'xx-large'
+rcp['legend.fontsize']      = 'large'
+
+rcp['figure.titleweight']   = 'bold'
+rcp['axes.titleweight']     = 'bold'
+rcp['axes.labelweight']     = 'bold'
+
+# Parameter Dictionary
+prmd = {}
+tmp = {}
+tmp['label']            = 'Solar Local Time [hr]'
+prmd['slt_mid']         = tmp
+
+tmp = {}
+tmp['label']            = 'UT Hours'
+prmd['ut_hrs']          = tmp
+
+tmp = {}
+tmp['label']            = 'Date Time [UT]'
+prmd['occurred']        = tmp
+
 # Region Dictionary
 regions = {}
 tmp     = {}
@@ -44,6 +70,23 @@ tmp     = {}
 tmp['lon_lim']  = ( -110.,-30.)
 tmp['lat_lim']  = (    0., 45.)
 regions['Greater Carribean']    = tmp
+
+sources     = OrderedDict()
+tmp = {}
+tmp['name'] = 'DXCluster'
+sources[0]  = tmp
+
+tmp = {}
+tmp['name'] = 'WSPRNet'
+sources[1]  = tmp
+
+tmp = {}
+tmp['name'] = 'RBN'
+sources[2]  = tmp
+
+tmp = {}
+tmp['name'] = 'PSKReporter'
+sources[3]  = tmp
 
 def make_dir(path,clear=False,php=False):
     prep_output({0:path},clear=clear,php=php)
@@ -304,6 +347,21 @@ def band_legend(ax,loc='lower center',markerscale=0.5,prop={'size':10},
     
     legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
     return legend
+
+def get_bins(lim, bin_size):
+    """ Helper function to split a limit into bins of the proper size """
+    bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
+    return bins
+
+def adjust_axes(ax_0,ax_1):
+    """
+    Force geospace environment axes to line up with histogram
+    axes even though it doesn't have a color bar.
+    """
+    ax_0_pos    = list(ax_0.get_position().bounds)
+    ax_1_pos    = list(ax_1.get_position().bounds)
+    ax_0_pos[2] = ax_1_pos[2]
+    ax_0.set_position(ax_0_pos)
 
 def regional_filter(region,df,kind='mids'):
     rgnd    = regions[region]

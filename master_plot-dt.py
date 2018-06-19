@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import os
 import sys
 import time
@@ -20,84 +19,13 @@ import tqdm
 
 import geopack
 from timeutils import daterange
-import gen_lib
-from gen_lib import regions
 import goes
 from omni import Omni
 
-#sources     = OrderedDict()
-#sources[0]  = "dxcluster"
-#sources[1]  = "WSPRNet"
-#sources[2]  = "RBN"
+import gen_lib as gl
 
-rcp = matplotlib.rcParams
-rcp['figure.titlesize']     = 'xx-large'
-rcp['axes.titlesize']       = 'xx-large'
-rcp['axes.labelsize']       = 'xx-large'
-rcp['xtick.labelsize']      = 'xx-large'
-rcp['ytick.labelsize']      = 'xx-large'
-rcp['legend.fontsize']      = 'large'
-
-rcp['figure.titleweight']   = 'bold'
-rcp['axes.titleweight']     = 'bold'
-rcp['axes.labelweight']     = 'bold'
-
-# Parameter Dictionary
-prmd = {}
-tmp = {}
-tmp['label']            = 'Solar Local Time [hr]'
-prmd['slt_mid']         = tmp
-
-tmp = {}
-tmp['label']            = 'UT Hours'
-prmd['ut_hrs']          = tmp
-
-tmp = {}
-tmp['label']            = 'UT Hours'
-prmd['occurred']        = tmp
-
-band_obj        = gen_lib.BandData()
+band_obj        = gl.BandData()
 BANDS           = band_obj.band_dict
-
-def get_bins(lim, bin_size):
-    """ Helper function to split a limit into bins of the proper size """
-    bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
-    return bins
-
-def adjust_axes(ax_0,ax_1):
-    """
-    Force geospace environment axes to line up with histogram
-    axes even though it doesn't have a color bar.
-    """
-    ax_0_pos    = list(ax_0.get_position().bounds)
-    ax_1_pos    = list(ax_1.get_position().bounds)
-    ax_0_pos[2] = ax_1_pos[2]
-    ax_0.set_position(ax_0_pos)
-
-def regional_filter(region,df,kind='mids'):
-    rgnd    = regions[region]
-    lat_lim = rgnd['lat_lim']
-    lon_lim = rgnd['lon_lim']
-
-    if kind == 'mids':
-        tf_md_lat   = np.logical_and(df.md_lat >= lat_lim[0], df.md_lat < lat_lim[1])
-        tf_md_long  = np.logical_and(df.md_long >= lon_lim[0], df.md_long < lon_lim[1])
-        tf_0        = np.logical_and(tf_md_lat,tf_md_long)
-        tf          = tf_0
-        df          = df[tf].copy()
-    elif kind == 'endpoints':
-        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_lim[0], df.rx_lat < lat_lim[1])
-        tf_rx_long  = np.logical_and(df.rx_long >= lon_lim[0], df.rx_long < lon_lim[1])
-        tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
-
-        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_lim[0], df.tx_lat < lat_lim[1])
-        tf_tx_long  = np.logical_and(df.tx_long >= lon_lim[0], df.tx_long < lon_lim[1])
-        tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
-        tf          = np.logical_or(tf_rx,tf_tx)
-
-        df          = df[tf].copy()
-
-    return df
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
@@ -108,9 +36,9 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
     xbin_0  = 0.
     xbin_1  = (xlim[1]-xlim[0]).total_seconds()/3600.
-    xbins = get_bins((xbin_0,xbin_1), 10./60)
+    xbins = gl.get_bins((xbin_0,xbin_1), 10./60)
     # y-axis: distance (km)
-    ybins = get_bins(ylim, 500)
+    ybins = gl.get_bins(ylim, 500)
 
     tmp = df[xkey] - df[xkey].min()
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
@@ -135,7 +63,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         return hist
 
     if xlabels:
-        xdct    = prmd[xkey]
+        xdct    = gl.prmd[xkey]
         xlabel  = xdct.get('label',xkey)
         ax.set_xlabel(xlabel)
 #    else:
@@ -182,7 +110,7 @@ def make_figure(sTime,eTime,xkey='occurred',
     print('Loading CSVs...')
     df  = pd.DataFrame()
     for dt in tqdm.tqdm(list(daterange(sTime, eTime))):
-        dft         = gen_lib.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
+        dft         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
                         filter_region=filter_region,filter_region_kind=filter_region_kind)
         df          = df.append(dft,ignore_index=True)
 
@@ -217,7 +145,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     nn              += 2
     ax              = plt.subplot2grid((ny,nx),(1,1),colspan=nx-1)
-    xdct            = prmd[xkey]
+    xdct            = gl.prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     for sat_nr,gd in goes_dcts.items():
         goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
@@ -233,8 +161,8 @@ def make_figure(sTime,eTime,xkey='occurred',
 #        ax.plot(ut_hr,flare['B_AVG'],'o',label=label,color='blue')
     ########################################
 
-    ax.set_xlabel(xlabel)
-    ax.set_title('NOAA GOES X-Ray (0.1 -0.8 nm) Irradiance')
+    title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
+    ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':20,'weight':'bold'})
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
@@ -294,7 +222,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 #        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
 #        cbar    = plt.colorbar(pcoll,ax=ax)
 #
-#        cdct    = prmd[xkey]
+#        cdct    = gl.prmd[xkey]
 #        clabel  = cdct.get('label',xkey)
 #        fontdict = {'size':'xx-large','weight':'normal'}
 #        cbar.set_label(clabel,fontdict=fontdict)
@@ -307,8 +235,8 @@ def make_figure(sTime,eTime,xkey='occurred',
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
 
-        ax.set_xlim(regions[maplim_region]['lon_lim'])
-        ax.set_ylim(regions[maplim_region]['lat_lim'])
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
         label   = 'Midpoints (N = {!s})'.format(n_mids)
         fdict   = {'size':24}
         ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
@@ -322,7 +250,7 @@ def make_figure(sTime,eTime,xkey='occurred',
     # Force geospace environment axes to line up with histogram
     # axes even though it doesn't have a color bar.
     for ax_0 in axs_to_adjust:
-        adjust_axes(ax_0,hist_ax)
+        gl.adjust_axes(ax_0,hist_ax)
 
     fdict   = {'size':50,'weight':'bold'}
     title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
@@ -367,7 +295,7 @@ def calculate_limits(run_dcts):
 
 if __name__ == "__main__":
     output_dir  = 'output/galleries/summary-multiday'
-    gen_lib.prep_output({0:output_dir},clear=True,php=True)
+    gl.prep_output({0:output_dir},clear=True)
     test_configuration  = True
     global_cbars        = False
 

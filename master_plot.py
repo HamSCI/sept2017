@@ -1,7 +1,9 @@
 #!/usr/bin/python3
-
 import os
-
+import sys
+import time
+import datetime
+import multiprocessing as mp
 from collections import OrderedDict
 
 import matplotlib
@@ -9,68 +11,21 @@ matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
-import datetime
-import cartopy.crs as ccrs
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import sys
-import time
+import cartopy.crs as ccrs
 
-import multiprocessing as mp
+import tqdm
 
 import geopack
 from timeutils import daterange
 import goes
 from omni import Omni
-import gen_lib
-from gen_lib import regions
 
-#sources     = OrderedDict()
-#sources[0]  = "dxcluster"
-#sources[1]  = "WSPRNet"
-#sources[2]  = "RBN"
+import gen_lib as gl
 
-rcp = matplotlib.rcParams
-rcp['figure.titlesize']     = 'xx-large'
-rcp['axes.titlesize']       = 'xx-large'
-rcp['axes.labelsize']       = 'xx-large'
-rcp['xtick.labelsize']      = 'xx-large'
-rcp['ytick.labelsize']      = 'xx-large'
-rcp['legend.fontsize']      = 'large'
-
-rcp['figure.titleweight']   = 'bold'
-rcp['axes.titleweight']     = 'bold'
-rcp['axes.labelweight']     = 'bold'
-
-
-# Parameter Dictionary
-prmd = {}
-tmp = {}
-tmp['label']            = 'Solar Local Time [hr]'
-prmd['slt_mid']         = tmp
-
-tmp = {}
-tmp['label']            = 'UT Hours'
-prmd['ut_hrs']          = tmp
-
-band_obj        = gen_lib.BandData()
+band_obj        = gl.BandData()
 BANDS           = band_obj.band_dict
-
-def get_bins(lim, bin_size):
-    """ Helper function to split a limit into bins of the proper size """
-    bins    = np.arange(lim[0], lim[1]+2*bin_size, bin_size)
-    return bins
-
-def adjust_axes(ax_0,ax_1):
-    """
-    Force geospace environment axes to line up with histogram
-    axes even though it doesn't have a color bar.
-    """
-    ax_0_pos    = list(ax_0.get_position().bounds)
-    ax_1_pos    = list(ax_1.get_position().bounds)
-    ax_0_pos[2] = ax_1_pos[2]
-    ax_0.set_position(ax_0_pos)
-
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
@@ -78,9 +33,9 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
-    xbins = get_bins((0, 24), 10./60)
+    xbins = gl.get_bins((0, 24), 10./60)
     # y-axis: distance (km)
-    ybins = get_bins(ylim, 500)
+    ybins = gl.get_bins(ylim, 500)
 
     if len(df[xkey]) > 1:
         hist, xb, yb = np.histogram2d(df[xkey], df["dist_Km"], bins=[xbins, ybins])
@@ -101,7 +56,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         return hist
 
     if xlabels:
-        xdct    = prmd[xkey]
+        xdct    = gl.prmd[xkey]
         xlabel  = xdct.get('label',xkey)
         ax.set_xlabel(xlabel)
 #    else:
@@ -141,7 +96,7 @@ def make_figure(date_str: str,xkey='ut_hrs',
     """
 
     print('Loading {!s}...'.format(date_str))
-    df      = gen_lib.load_spots_csv(date_str,rgc_lim=rgc_lim,
+    df      = gl.load_spots_csv(date_str,rgc_lim=rgc_lim,
                     filter_region=filter_region,filter_region_kind=filter_region_kind)
 
     # Plotting #############################
@@ -161,7 +116,8 @@ def make_figure(date_str: str,xkey='ut_hrs',
     nn              += 2
     omni            = Omni()
     ax              = fig.add_subplot(ny,nx,nn)
-    omni_axs        = omni.plot_dst_kp(sDate,eDate,ax,xkey='ut_hrs',xlabels=False)
+    omni_axs        = omni.plot_dst_kp(sDate,eDate,ax,xkey='ut_hrs',xlabels=True)
+#    ax.set_xlabel('UT Hours')
     axs_to_adjust   += omni_axs
 
 
@@ -172,13 +128,13 @@ def make_figure(date_str: str,xkey='ut_hrs',
 
     for sat_nr,gd in goes_dcts.items():
         gd['data']      = goes.read_goes(sDate,sat_nr=sat_nr)
-        gd['flares']    = goes.find_flares(gd['data'],min_class='M5',window_minutes=60)
+#        gd['flares']    = goes.find_flares(gd['data'],min_class='M5',window_minutes=60)
         gd['var_tags']  = ['B_AVG']
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
     nn              += 2
     ax              = fig.add_subplot(ny,nx,nn)
-    xdct            = prmd[xkey]
+    xdct            = gl.prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     for sat_nr,gd in goes_dcts.items():
         goes.goes_plot_hr(gd['data'],ax,
@@ -194,8 +150,9 @@ def make_figure(date_str: str,xkey='ut_hrs',
 #        ax.plot(ut_hr,flare['B_AVG'],'o',label=label,color='blue')
     ########################################
 
-    ax.set_xlabel(xlabel)
-    ax.set_title('NOAA GOES X-Ray (0.1 -0.8 nm) Irradiance')
+#    ax.set_xlabel(xlabel)
+    title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
+    ax.text(0.02,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':20,'weight':'bold'})
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
@@ -229,9 +186,6 @@ def make_figure(date_str: str,xkey='ut_hrs',
         hist_ax = ax
 
         if calc_hist_maxes:
-#            if 'hist_maxes' not in band.keys():
-#                band['hist_maxes'] = []
-#            band['hist_maxes'].append(np.max(hist))
             hist_maxes[band_key]    = np.max(hist)
             continue
         
@@ -241,9 +195,6 @@ def make_figure(date_str: str,xkey='ut_hrs',
         ax = fig.add_subplot(ny,nx,nn, projection=ccrs.PlateCarree())
         ax.coastlines()
         ax.gridlines()
-
-        label   = 'MidPt (N = {!s})'.format(n_mids)
-#        frame.plot.scatter('md_long', 'md_lat', color=color, ax=ax, marker="o",label=label,zorder=10,s=10)
 
         cmap    = matplotlib.cm.jet
         vmin    = 0
@@ -258,10 +209,10 @@ def make_figure(date_str: str,xkey='ut_hrs',
             yy  = np.array([0,0])
             cc  = np.array([0,0])
 
-        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
+        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",zorder=10,s=5)
         cbar    = plt.colorbar(pcoll,ax=ax)
 
-        cdct    = prmd[xkey]
+        cdct    = gl.prmd[xkey]
         clabel  = cdct.get('label',xkey)
         fontdict = {'size':'xx-large','weight':'normal'}
         cbar.set_label(clabel,fontdict=fontdict)
@@ -274,10 +225,12 @@ def make_figure(date_str: str,xkey='ut_hrs',
 #        label   = 'RX (N = {!s})'.format(len(rx_df))
 #        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
 
-        ax.set_xlim(regions[maplim_region]['lon_lim'])
-        ax.set_ylim(regions[maplim_region]['lat_lim'])
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
-        ax.legend(loc='lower center',ncol=3)
+        label   = 'Midpoints (N = {!s})'.format(n_mids)
+        fdict   = {'size':24}
+        ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
 
     if calc_hist_maxes:
         plt.close(fig)
@@ -288,10 +241,10 @@ def make_figure(date_str: str,xkey='ut_hrs',
     # Force geospace environment axes to line up with histogram
     # axes even though it doesn't have a color bar.
     for ax_0 in axs_to_adjust:
-        adjust_axes(ax_0,hist_ax)
+        gl.adjust_axes(ax_0,hist_ax)
 
     fdict   = {'size':50,'weight':'bold'}
-    fig.text(0.265,0.925,date_str,fontdict=fdict)
+    fig.text(0.225,0.925,date_str,fontdict=fdict)
 
     if fname is None:
         fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
@@ -336,45 +289,45 @@ def calculate_limits(run_dcts):
         band['vmax']    = np.percentile(band['hist_maxes'],85)
 
 if __name__ == "__main__":
-    output_dir  = 'output/galleries/hist'
-    gen_lib.prep_output({0:output_dir},clear=True,php=True)
+    output_dir  = 'output/galleries/summary-daily'
+    gl.prep_output({0:output_dir},clear=True)
     test_configuration  = True
     global_cbars        = False
 
     run_dcts    = []
 
-#    dct = {}
-#    dct['date_str']             = '2017-09-06'
-#    dct['xkey']                 = 'ut_hrs'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'Europe'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-06-EU.png'
-#    run_dcts.append(dct)
-#
-#    dct = {}
-#    dct['date_str']             = '2017-09-06'
-#    dct['xkey']                 = 'ut_hrs'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'US'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-06-US.png'
-#    run_dcts.append(dct)
+    dct = {}
+    dct['date_str']             = '2017-09-06'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-06-EU.png'
+    run_dcts.append(dct)
 
-#    dct = {}
-#    dct['date_str']             = '2017-09-08'
-#    dct['xkey']                 = 'ut_hrs'
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'World'
-#    dct['filter_region']        = None
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    dct['fname']                = '2017-09-08.png'
-#    run_dcts.append(dct)
+    dct = {}
+    dct['date_str']             = '2017-09-06'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'US'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-06-US.png'
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['date_str']             = '2017-09-08'
+    dct['xkey']                 = 'ut_hrs'
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'World'
+    dct['filter_region']        = None
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    dct['fname']                = '2017-09-08.png'
+    run_dcts.append(dct)
 
     dct = {}
     dct['date_str']             = '2017-09-08'
