@@ -27,6 +27,12 @@ import gen_lib as gl
 band_obj        = gl.BandData()
 BANDS           = band_obj.band_dict
 
+#my_bands = [14,7]
+#keys    = list(BANDS.keys())
+#for band in keys:
+#    if band not in my_bands:
+#        del BANDS[band]
+
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
         calc_hist_maxes=False,xlabels=True,plot_title=False):
@@ -268,8 +274,9 @@ def make_figure(sTime,eTime,xkey='occurred',
     fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
 
     if fname is None:
-        fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
-                date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind
+        fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}-PLOTTED{!s}.png'.format(
+                date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind,
+                datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
                 )
     fpath   = os.path.join(output_dir,fname)
     fig.savefig(fpath,bbox_inches='tight')
@@ -312,53 +319,68 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'Europe'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'Europe'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'US'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,20000)
+#    dct['maplim_region']        = 'World'
+#    dct['output_dir']           = output_dir
+#    dct['log_hist']             = True
+#    run_dcts.append(dct)
 
     dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'World'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,20000)
-    dct['maplim_region']        = 'World'
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['sTime']                = datetime.datetime(2017, 9, 6)
+    dct['eTime']                = datetime.datetime(2017, 9, 10)
+    dct['rgc_lim']              = (0,10000)
+    dct['maplim_region']        = 'Greater Carribean'
+    dct['filter_region']        = 'Carribean'
+    dct['filter_region_kind']   = 'endpoints'
     dct['output_dir']           = output_dir
     dct['log_hist']             = True
     run_dcts.append(dct)
 
-#    sTime = datetime.datetime(2017, 9, 1)
-#    eTime = datetime.datetime(2017, 9, 3)
-##    eTime = datetime.datetime(2017, 10, 1)
-#
-#    run_dcts    = []
-#    for dt in daterange(sTime, eTime):
-#        dct = {}
-#        dct['date_str']     = dt.strftime("%Y-%m-%d")
-#        dct['output_dir']   = output_dir
-#        run_dcts.append(dct)
+    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['sTime']                = datetime.datetime(2017, 9, 6)
+    dct['eTime']                = datetime.datetime(2017, 9, 10)
+    dct['rgc_lim']              = (0,10000)
+    dct['maplim_region']        = 'Greater Carribean'
+    dct['filter_region']        = 'Carribean'
+    dct['filter_region_kind']   = 'endpoints'
+    dct['output_dir']           = output_dir
+    dct['log_hist']             = False
+    run_dcts.append(dct)
 
     if test_configuration:
         print('Plotting...')

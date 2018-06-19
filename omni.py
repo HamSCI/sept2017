@@ -5,6 +5,9 @@ import matplotlib as mpl
 mpl.use('Agg')
 from matplotlib import pyplot as plt
 
+def to_ut_hr(dt):
+    return dt.hour + dt.minute/60. + dt.second/3600.
+
 class Omni():
     def __init__(self):
         omni_csv        = 'data/omni/omni2_3051.csv'
@@ -27,18 +30,19 @@ class Omni():
         """
         DST and Kp
         """
-
         tf  = np.logical_and(self.df.index >= sTime, self.df.index < eTime)
         df  = self.df[tf].copy()
 
-        ut_hrs  = [dt.hour + dt.minute/60. + dt.second/3600. for dt in df.index]
+        ut_hrs  = df.index.map(to_ut_hr)
 
         lines       =[]
 
         if xkey == 'index':
-            xx  = df.index
+            xx      = df.index
+            xlim    = (sTime,eTime)
         else:
-            xx = ut_hrs
+            xx      = ut_hrs
+            xlim    = (to_ut_hr(sTime), to_ut_hr(eTime))
         yy = df['Dst_nT'].tolist()
 
         tmp,        = ax.plot(xx,yy,label='Dst [nT]',color='k')
@@ -47,6 +51,7 @@ class Omni():
         ax.set_ylabel('Dst [nT]')
         ax.axhline(0,color='k',ls='--')
         ax.set_ylim(-200,50)
+        ax.set_xlim(xlim)
 
         # Kp ###################################
         ax_1        = ax.twinx()

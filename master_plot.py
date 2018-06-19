@@ -345,6 +345,17 @@ if __name__ == "__main__":
     dct['log_hist']             = True
     run_dcts.append(dct)
 
+#    dct = {}
+#    dct['date_str']             = '2017-09-08'
+#    dct['xkey']                 = 'ut_hrs'
+#    dct['rgc_lim']              = (0,20000)
+#    dct['maplim_region']        = 'Greater Carribean'
+#    dct['filter_region']        = 'Carribean'
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = '2017-09-08.png'
+#    run_dcts.append(dct)
+
 #    sDate = datetime.datetime(2017, 9, 1)
 #    eDate = datetime.datetime(2017, 9, 3)
 ##    eDate = datetime.datetime(2017, 10, 1)
