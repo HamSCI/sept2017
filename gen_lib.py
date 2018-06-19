@@ -443,3 +443,11 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
 
     return df
 
+def list_sources(df):
+    srcs    = df.source.unique()
+    srcs.sort()
+
+    names   = []
+    for src in srcs:
+        names.append(sources[src].get('name'))
+    return names

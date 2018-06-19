@@ -243,8 +243,15 @@ def make_figure(date_str: str,xkey='ut_hrs',
     for ax_0 in axs_to_adjust:
         gl.adjust_axes(ax_0,hist_ax)
 
+    xpos    = 0.230
+    ypos    = 0.965
     fdict   = {'size':50,'weight':'bold'}
-    fig.text(0.225,0.925,date_str,fontdict=fdict)
+    fig.text(xpos,ypos,date_str,fontdict=fdict)
+
+    srcs    = '\n'.join(['   '+x for x in gl.list_sources(df)])
+    txt     = 'Ham Radio Networks\n' + srcs
+    fdict   = {'size':30,'weight':'bold'}
+    fig.text(xpos,ypos-0.065,txt,fontdict=fdict)
 
     if fname is None:
         fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
