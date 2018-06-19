@@ -24,6 +24,24 @@ from omni import Omni
 
 import gen_lib as gl
 
+layouts = {}
+
+tmp = {}
+layouts['default']  = tmp
+
+tmp = {}
+sf = 0.9
+tmp['figsize']          = (sf*60,sf*30)
+tmp['env_rspan']        = 2
+tmp['band_rspan']       = 3
+tmp['c0_cspan']         = 23
+tmp['c1_pos']           = 25
+tmp['c1_cspan']         = 75
+tmp['nx']               = 100
+tmp['map_cbar_shrink']  = 0.75
+tmp['freq_size']        = 50
+layouts['2band']        = tmp
+
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
         calc_hist_maxes=False,xlabels=True,plot_title=False):
@@ -96,10 +114,16 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None,
+        cparam=None,layout=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
+
+    if layout is None:
+        lout = layouts.get('default')
+    else:
+        lout = layouts.get(layout)
 
     if band_obj is None:
         band_obj    = gl.BandData()
@@ -120,18 +144,25 @@ def make_figure(sTime,eTime,xkey='occurred',
     # Plotting #############################
     print('Plotting...')
 
-    nx  = 5
-    ny  = len(band_dict)+2
-    nn  = 0
+    env_rspan   = lout.get('env_rspan',1)
+    band_rspan  = lout.get('band_rspan',1)
+    c0_span     = lout.get('c0_cspan',1)
+    c1_span     = lout.get('c1_cspan',4)
+    c1_pos      = lout.get('c1_pos',c0_span)
 
-    sf  = 1.00  # Scale Factor
-    fig = plt.figure(figsize=(sf*40, sf*4*len(band_dict)))
+    n_env       = 2
+    nx          = lout.get('nx',5)
+    ny          = len(band_dict)*band_rspan + n_env*env_rspan
+    
+    sf      = lout.get('sf',1.00)  # Scale Factor
+    figsize = lout.get('figsize',(sf*40, sf*4*len(band_dict)))
+
+    fig = plt.figure(figsize=figsize)
 
     # Geospace Environment ####################
     axs_to_adjust   = []
-    nn              += 2
     omni            = Omni()
-    ax              = plt.subplot2grid((ny,nx),(0,1),colspan=nx-1)
+    ax              = plt.subplot2grid((ny,nx),(0,c1_pos),colspan=c1_span,rowspan=env_rspan)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True)
     axs_to_adjust   += omni_axs
 
@@ -146,8 +177,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         gd['var_tags']  = ['B_AVG']
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
-    nn              += 2
-    ax              = plt.subplot2grid((ny,nx),(1,1),colspan=nx-1)
+    ax              = plt.subplot2grid((ny,nx),(env_rspan,c1_pos),colspan=c1_span,rowspan=env_rspan)
     xdct            = gl.prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     for sat_nr,gd in goes_dcts.items():
@@ -169,8 +199,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
-    for fig_row, (band_key,band) in enumerate(band_dict.items()):
-        fig_row += ny-len(band_dict)
+    for band_inx, (band_key,band) in enumerate(band_dict.items()):
+        fig_row = n_env*env_rspan + band_inx*band_rspan
         if fig_row == ny-1:
             xlabels = True
         else:
@@ -183,8 +213,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         print('   {!s}: {!s} (n={!s})'.format(date_str,band.get('freq_name'),n_mids))
 
         # Histograms ########################### 
-        nn      = fig_row*nx + 2
-        ax      = plt.subplot2grid((ny,nx),(fig_row,1),colspan=nx-1)
+        ax      = plt.subplot2grid((ny,nx),(fig_row,c1_pos),
+                    colspan=c1_span,rowspan=band_rspan)
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
         vmin    = band.get('vmin')
@@ -193,7 +223,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist)
 
-        fdict   = {'size':35,'weight':'bold'}
+        fdict   = {'size':lout.get('freq_size',35),'weight':'bold'}
         ax.text(-0.075,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
 
         hist_ax = ax
@@ -203,32 +233,41 @@ def make_figure(sTime,eTime,xkey='occurred',
             continue
         
         #    # Map ################################## 
-        nn      = fig_row*nx + 1
-        ax = plt.subplot2grid((ny,nx),(fig_row,0),projection=ccrs.PlateCarree())
+        ax = plt.subplot2grid((ny,nx),(fig_row,0),projection=ccrs.PlateCarree(),
+                rowspan=band_rspan,colspan=c0_span)
         ax.coastlines()
         ax.gridlines()
 
-        cmap    = matplotlib.cm.jet
-        vmin    = 0
-        vmax    = 24
-
-        cc      = frame[xkey]
         xx      = frame['md_long']
         yy      = frame['md_lat']
+        if cparam is not None:
+            cc      = frame[cparam]
 
         if len(xx) == 0:
             xx  = np.array([0,0])
             yy  = np.array([0,0])
             cc  = np.array([0,0])
 
-        pcoll   = ax.scatter(xx,yy,color='blue',marker="o",zorder=10,s=5)
-#        pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
-#        cbar    = plt.colorbar(pcoll,ax=ax)
-#
-#        cdct    = gl.prmd[xkey]
-#        clabel  = cdct.get('label',xkey)
-#        fontdict = {'size':'xx-large','weight':'normal'}
-#        cbar.set_label(clabel,fontdict=fontdict)
+        if cparam is None:
+            pcoll   = ax.scatter(xx,yy,color='blue',marker="o",zorder=10,s=5)
+        else:
+            cdct    = gl.prmd[cparam]
+            cmap    = cdct.get('cmap',matplotlib.cm.jet)
+            vmin    = cdct.get('vmin',0)
+            vmax    = cdct.get('vmax',np.nanmax(cc))
+
+            pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",zorder=10,s=5)
+
+            cb_props = {}
+            cb_props['shrink']      = lout.get('map_cbar_shrink',1.)
+            cb_props['fraction']    = lout.get('map_cbar_fraction',0.15)
+            cb_props['pad']         = lout.get('map_cbar_pad',0.05)
+            cb_props['aspect']      = lout.get('map_cbar_aspect',20)
+            cbar    = plt.colorbar(pcoll,ax=ax,**cb_props)
+
+            clabel  = cdct.get('label',cparam)
+            fontdict = {'size':'xx-large','weight':'normal'}
+            cbar.set_label(clabel,fontdict=fontdict)
 
 #        tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
 #        label   = 'TX (N = {!s})'.format(len(tx_df))
@@ -326,42 +365,42 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-#    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 4)
-#    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'Europe'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    run_dcts.append(dct)
-#
-#    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 4)
-#    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'US'
-#    dct['filter_region']        =  dct['maplim_region']
-#    dct['filter_region_kind']   = 'mids'
-#    dct['output_dir']           = output_dir
-#    run_dcts.append(dct)
-#
-#    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 4)
-#    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['rgc_lim']              = (0,3000)
-#    dct['maplim_region']        = 'World'
-#    dct['output_dir']           = output_dir
-#    run_dcts.append(dct)
-#
-#    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 4)
-#    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['rgc_lim']              = (0,20000)
-#    dct['maplim_region']        = 'World'
-#    dct['output_dir']           = output_dir
-#    dct['log_hist']             = True
-#    run_dcts.append(dct)
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'US'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'World'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,20000)
+    dct['maplim_region']        = 'World'
+    dct['output_dir']           = output_dir
+    dct['log_hist']             = True
+    run_dcts.append(dct)
 
     dct = {}
 #    dct['sTime']                = datetime.datetime(2017, 9, 4)
@@ -374,8 +413,16 @@ if __name__ == "__main__":
     dct['filter_region_kind']   = 'endpoints'
     dct['log_hist']             = True
     dct['band_obj']             = gl.BandData([7,14])
+    dct['cparam']               = 'dist_Km'
+    dct['layout']               = '2band'
     dct['output_dir']           = output_dir
     run_dcts.append(dct)
+
+    dct = dct.copy()
+    del dct['band_obj']
+    del dct['layout']
+    run_dcts.append(dct)
+
 
     if test_configuration:
         print('Plotting...')

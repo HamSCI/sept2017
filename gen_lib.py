@@ -48,6 +48,10 @@ tmp = {}
 tmp['label']            = 'f [MHz]'
 prmd['freq']            = tmp
 
+tmp = {}
+tmp['label']            = 'R_gc [km]'
+prmd['dist_Km']         = tmp
+
 # Region Dictionary
 regions = {}
 tmp     = {}
