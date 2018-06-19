@@ -24,9 +24,6 @@ from omni import Omni
 
 import gen_lib as gl
 
-band_obj        = gl.BandData()
-BANDS           = band_obj.band_dict
-
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='ut_hrs',ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
         calc_hist_maxes=False,xlabels=True,plot_title=False):
@@ -90,10 +87,14 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(date_str: str,xkey='ut_hrs',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
+
+    if band_obj is None:
+        band_obj        = gl.BandData()
+    band_dict       = band_obj.band_dict
 
     print('Loading {!s}...'.format(date_str))
     df      = gl.load_spots_csv(date_str,rgc_lim=rgc_lim,
@@ -102,11 +103,11 @@ def make_figure(date_str: str,xkey='ut_hrs',
     # Plotting #############################
     print('Plotting {!s}...'.format(date_str))
     nx  = 2
-    ny  = len(BANDS)+2
+    ny  = len(band_dict)+2
     nn  = 0
 
     sf  = 1.00  # Scale Factor
-    fig = plt.figure(figsize=(sf*30, sf*4*len(BANDS)))
+    fig = plt.figure(figsize=(sf*30, sf*4*len(band_dict)))
 
     # Geospace Environment ####################
     axs_to_adjust   = []
@@ -156,8 +157,8 @@ def make_figure(date_str: str,xkey='ut_hrs',
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
-    for fig_row, (band_key,band) in enumerate(BANDS.items()):
-        fig_row += ny-len(BANDS)
+    for fig_row, (band_key,band) in enumerate(band_dict.items()):
+        fig_row += ny-len(band_dict)
         if fig_row == ny-1:
             xlabels = True
         else:
@@ -297,12 +298,12 @@ def calculate_limits(run_dcts):
         results = pool.map(plot_wrapper,run_dcts)
 
     for result in results:
-        for band_key,band in BANDS.items():
+        for band_key,band in band_dict.items():
             if 'hist_maxes' not in band.keys():
                 band['hist_maxes'] = []
             band['hist_maxes'].append(result[band_key])
 
-    for band_key,band in BANDS.items():
+    for band_key,band in band_dict.items():
         band['vmax']    = np.percentile(band['hist_maxes'],85)
 
 if __name__ == "__main__":

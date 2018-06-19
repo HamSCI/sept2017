@@ -142,7 +142,11 @@ def cc255(color):
     return tuple(trip)
 
 class BandData(object):
-    def __init__(self,cmap='HFRadio',vmin=0.,vmax=30.):
+    def __init__(self,bands=None,cmap='HFRadio',vmin=0.,vmax=30.):
+        """
+        bands:  None for all HF contest bands.
+                List to select bands (i.e. [7,14])
+        """
         if cmap == 'HFRadio':
             self.cmap   = self.hf_cmap(vmin=vmin,vmax=vmax)
         else:
@@ -150,7 +154,16 @@ class BandData(object):
 
         self.norm   = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
-        # Set up a dictionary which identifies which bands we want and some plotting attributes for each band
+        self.__gen_band_dict__()
+
+        # Delete unwanted bands from the band dictionary.
+        if bands is not None:
+            keys    = list(self.band_dict.keys())
+            for band in keys:
+                if band not in bands:
+                    del self.band_dict[band]
+
+    def __gen_band_dict__(self):
         bands   = []
         bands.append((28.0,  10))
         bands.append((21.0,  15))
@@ -159,9 +172,6 @@ class BandData(object):
         bands.append(( 3.5,  80))
         bands.append(( 1.8, 160))
 
-        self.__gen_band_dict__(bands)
-
-    def __gen_band_dict__(self,bands):
         dct = OrderedDict()
         for freq,meters in bands:
             key = int(freq)

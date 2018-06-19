@@ -24,15 +24,6 @@ from omni import Omni
 
 import gen_lib as gl
 
-band_obj        = gl.BandData()
-BANDS           = band_obj.band_dict
-
-#my_bands = [14,7]
-#keys    = list(BANDS.keys())
-#for band in keys:
-#    if band not in my_bands:
-#        del BANDS[band]
-
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
         calc_hist_maxes=False,xlabels=True,plot_title=False):
@@ -105,10 +96,16 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
-        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None):
+        log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
+
+    if band_obj is None:
+        band_obj    = gl.BandData()
+
+    band_dict   = band_obj.band_dict
+
     date_str_0  = sTime.strftime('%d %b %Y')
     date_str_1  = eTime.strftime('%d %b %Y')
     date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
@@ -124,11 +121,11 @@ def make_figure(sTime,eTime,xkey='occurred',
     print('Plotting...')
 
     nx  = 5
-    ny  = len(BANDS)+2
+    ny  = len(band_dict)+2
     nn  = 0
 
     sf  = 1.00  # Scale Factor
-    fig = plt.figure(figsize=(sf*40, sf*4*len(BANDS)))
+    fig = plt.figure(figsize=(sf*40, sf*4*len(band_dict)))
 
     # Geospace Environment ####################
     axs_to_adjust   = []
@@ -172,8 +169,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
-    for fig_row, (band_key,band) in enumerate(BANDS.items()):
-        fig_row += ny-len(BANDS)
+    for fig_row, (band_key,band) in enumerate(band_dict.items()):
+        fig_row += ny-len(band_dict)
         if fig_row == ny-1:
             xlabels = True
         else:
@@ -313,12 +310,12 @@ def calculate_limits(run_dcts):
         results = pool.map(plot_wrapper,run_dcts)
 
     for result in results:
-        for band_key,band in BANDS.items():
+        for band_key,band in band_dict.items():
             if 'hist_maxes' not in band.keys():
                 band['hist_maxes'] = []
             band['hist_maxes'].append(result[band_key])
 
-    for band_key,band in BANDS.items():
+    for band_key,band in band_dict.items():
         band['vmax']    = np.percentile(band['hist_maxes'],85)
 
 if __name__ == "__main__":
@@ -375,8 +372,9 @@ if __name__ == "__main__":
     dct['maplim_region']        = 'Greater Carribean'
     dct['filter_region']        = 'Carribean'
     dct['filter_region_kind']   = 'endpoints'
-    dct['output_dir']           = output_dir
     dct['log_hist']             = True
+    dct['band_obj']             = gl.BandData([7,14])
+    dct['output_dir']           = output_dir
     run_dcts.append(dct)
 
     if test_configuration:
