@@ -17,109 +17,25 @@ import time
 import tqdm
 
 import geopack
-from gen_lib import prep_output, BandData,fill_dark_side, band_legend
-
-sources     = OrderedDict()
-sources[0]  = "dxcluster"
-sources[1]  = "WSPRNet"
-sources[2]  = "RBN"
-
-rcp = matplotlib.rcParams
-rcp['figure.titlesize']     = 'xx-large'
-rcp['axes.titlesize']       = 'xx-large'
-rcp['axes.labelsize']       = 'xx-large'
-rcp['xtick.labelsize']      = 'xx-large'
-rcp['ytick.labelsize']      = 'xx-large'
-rcp['legend.fontsize']      = 'large'
-
-rcp['figure.titleweight']   = 'bold'
-rcp['axes.titleweight']     = 'bold'
-rcp['axes.labelweight']     = 'bold'
-
-# Parameter Dictionary
-prmd = {}
-tmp = {}
-tmp['label']            = 'Solar Local Time [hr]'
-prmd['slt_mid']         = tmp
-
-tmp = {}
-tmp['label']            = 'UT Hours'
-prmd['ut_hrs']          = tmp
-
-tmp = {}
-tmp['label']            = 'f [MHz]'
-prmd['freq']            = tmp
-
-# Region Dictionary
-regions = {}
-tmp     = {}
-tmp['lon_lim']  = (-180.,180.)
-tmp['lat_lim']  = ( -90., 90.)
-regions['World']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = (-130.,-60.)
-tmp['lat_lim']  = (  20., 55.)
-regions['US']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -15., 55.)
-tmp['lat_lim']  = (  30., 65.)
-regions['Europe']   = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -90.,-60.)
-tmp['lat_lim']  = (  15., 30.)
-regions['Carribean']    = tmp
-
-tmp     = {}
-tmp['lon_lim']  = ( -110.,-30.)
-tmp['lat_lim']  = (    0., 45.)
-regions['Greater Carribean']    = tmp
+import gen_lib as gl
 
 de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
 dxf_prop        = {'marker':'*','color':'blue'}
 dxf_leg_size    = 150
 dxf_plot_size   = 50
 
-CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
-band_obj        = BandData()
+band_obj        = gl.BandData()
 BANDS           = band_obj.band_dict
 
-def get_bins(lim, bin_size):
-    """ Helper function to split a limit into bins of the proper size """
-    return np.arange(lim[0], lim[1]+2*bin_size, bin_size)
+def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',
+        filter_region=None,filter_region_kind='mids',output_dir='output'):
 
-def hours_from_dt64(dt64, date_):
-    """ Take a datetime64 and return the value in decimal hours"""
-    return (dt64 - date_).astype(float) / 3600
-
-def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_region=None,
-        output_dir='output'):
-    df = pd.read_csv(CSV_FILE_PATH.format(date_str))
-
-    df["occurred"]  = pd.to_datetime(df["occurred"])
-    df["ut_hrs"]    = hours_from_dt64(df["occurred"].values.astype("M8[s]"), np.datetime64(date_str))
-
-    # Path Length Filtering
-    if rgc_lim is not None:
-        tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
-                             df['dist_Km'] <  rgc_lim[1])
-        df  = df[tf].copy()
-
-    cols = list(df) + ["md_lat", "md_long"]
-    df = df.reindex(columns=cols)
-    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
-    df['md_lat']    = midpoints[0]
-    df['md_long']   = midpoints[1]
-
-    # Regional Filtering
-    if filter_region is not None:
-        df      = regional_filter(filter_region,df,kind=filter_region_kind)
-
-    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+    print('Loading {!s}...'.format(date_str))
+    df      = gl.load_spots_csv(date_str,rgc_lim=rgc_lim,
+                    filter_region=filter_region,filter_region_kind=filter_region_kind)
 
     # Plotting #############################
+    print('Plotting {!s}...'.format(date_str))
     nx  = 1
     ny  = len(time_periods)
     nn  = 0
@@ -158,7 +74,8 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
                 clr = band_obj.get_rgba(row['freq']/1000)
 
                 ax.plot(xx,yy,transform=ccrs.Geodetic(),color=clr)
-                legend  = band_legend(ax,band_data=band_obj,rbn_rx=False)
+
+            legend  = gl.band_legend(ax,band_data=band_obj,rbn_rx=False)
 
             tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
 #            label   = 'TX (N = {!s})'.format(len(tx_df))
@@ -179,8 +96,8 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
 
         elif plot_type  == 'hist':
             bin_size    = 2.5
-            lon_bins    = get_bins((-180,180),bin_size)
-            lat_bins    = get_bins((-90,90),bin_size)
+            lon_bins    = gl.get_bins((-180,180),bin_size)
+            lat_bins    = gl.get_bins((-90,90),bin_size)
 
             hist, xb, yb = np.histogram2d(frame['md_long'],frame['md_lat'], bins=[lon_bins, lat_bins])
 
@@ -213,7 +130,7 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
             pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",label=label,zorder=10,s=10)
 
             cbar    = plt.colorbar(pcoll,ax=ax)
-            cdct    = prmd[xkey]
+            cdct    = gl.prmd[xkey]
             clabel  = cdct.get('label',xkey)
             fontdict = {'size':'xx-large','weight':'normal'}
             cbar.set_label(clabel,fontdict=fontdict)
@@ -227,8 +144,8 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
 #            rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
             ax.legend(loc='lower center',ncol=3)
 
-        ax.set_xlim(regions[maplim_region]['lon_lim'])
-        ax.set_ylim(regions[maplim_region]['lat_lim'])
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
         tp0_str = time_period[0].strftime('%Y %b %d %H%M UT')
         tp1_str = time_period[1].strftime('%Y %b %d %H%M UT')
@@ -237,7 +154,7 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
 
         ax.set_title('({!s})'.format(alphas[plt_inx]),loc='left',fontdict={'size':24})
         mid_dt  = time_period[0] + (time_period[1]-time_period[0])/2
-        fill_dark_side(ax,mid_dt,color='0.5',alpha=0.5)
+        gl.fill_dark_side(ax,mid_dt,color='0.5',alpha=0.5)
 
     fig.tight_layout()
 
@@ -251,7 +168,7 @@ def plot_figure(time_periods,date_str,rgc_lim=None,maplim_region='World',filter_
 
 if __name__ == '__main__':
     output_dir  = 'output/galleries/maps'
-    prep_output({0:output_dir},clear=True,php=True)
+    gl.prep_output({0:output_dir},clear=True,php=True)
 
     flare_dt    = datetime.datetime(2017,9,6,11,53)
     window      = datetime.timedelta(minutes=15)

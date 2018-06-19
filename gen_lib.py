@@ -44,6 +44,10 @@ tmp = {}
 tmp['label']            = 'Date Time [UT]'
 prmd['occurred']        = tmp
 
+tmp = {}
+tmp['label']            = 'f [MHz]'
+prmd['freq']            = tmp
+
 # Region Dictionary
 regions = {}
 tmp     = {}
@@ -346,6 +350,7 @@ def band_legend(ax,loc='lower center',markerscale=0.5,prop={'size':10},
         ncol = len(labels)
     
     legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
+    plt.close(fig_tmp)
     return legend
 
 def get_bins(lim, bin_size):
