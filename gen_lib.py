@@ -443,11 +443,15 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
 
     return df
 
-def list_sources(df):
+def list_sources(df,count=True):
     srcs    = df.source.unique()
     srcs.sort()
 
     names   = []
     for src in srcs:
-        names.append(sources[src].get('name'))
+        name    = sources[src].get('name')
+        if count:
+            cnt     = np.sum(df.source==src)
+            name    = '{!s} (N={!s})'.format(name,cnt)
+        names.append(name)
     return names

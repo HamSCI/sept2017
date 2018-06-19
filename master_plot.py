@@ -248,7 +248,7 @@ def make_figure(date_str: str,xkey='ut_hrs',
     fdict   = {'size':50,'weight':'bold'}
     fig.text(xpos,ypos,date_str,fontdict=fdict)
 
-    srcs    = '\n'.join(['   '+x for x in gl.list_sources(df)])
+    srcs    = '\n'.join([' '+x for x in gl.list_sources(df)])
     txt     = 'Ham Radio Networks\n' + srcs
     fdict   = {'size':30,'weight':'bold'}
     fig.text(xpos,ypos-0.065,txt,fontdict=fdict)

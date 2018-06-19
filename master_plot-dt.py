@@ -252,9 +252,20 @@ def make_figure(sTime,eTime,xkey='occurred',
     for ax_0 in axs_to_adjust:
         gl.adjust_axes(ax_0,hist_ax)
 
+#    fdict   = {'size':50,'weight':'bold'}
+#    title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
+#    fig.text(0.030,0.925,title,fontdict=fdict)
+
+    xpos    = 0.030
+    ypos    = 0.925
     fdict   = {'size':50,'weight':'bold'}
     title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
-    fig.text(0.030,0.925,title,fontdict=fdict)
+    fig.text(xpos,ypos,title,fontdict=fdict)
+
+    srcs    = '\n'.join([' '+x for x in gl.list_sources(df)])
+    txt     = 'Ham Radio Networks\n' + srcs
+    fdict   = {'size':30,'weight':'bold'}
+    fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
 
     if fname is None:
         fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}.png'.format(
