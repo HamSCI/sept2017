@@ -27,20 +27,8 @@ import gen_lib as gl
 layouts = {}
 
 tmp = {}
+#goes legend size = 15
 layouts['default']  = tmp
-
-tmp = {}
-sf = 1.0
-tmp['figsize']          = (sf*40,sf*30)
-#tmp['env_rspan']        = 2
-#tmp['band_rspan']       = 3
-#tmp['c0_cspan']         = 23
-#tmp['c1_pos']           = 25
-#tmp['c1_cspan']         = 75
-#tmp['nx']               = 100
-#tmp['map_cbar_shrink']  = 0.75
-#tmp['freq_size']        = 50
-layouts['4band12hr']    = tmp
 
 tmp = {}
 sf = 0.9
@@ -54,6 +42,37 @@ tmp['nx']               = 100
 tmp['map_cbar_shrink']  = 0.75
 tmp['freq_size']        = 50
 layouts['2band']        = tmp
+
+tmp = {}
+sf = 1.0
+tmp['figsize']          = (sf*40,sf*30)
+tmp['c0_cspan']         = 23
+tmp['c1_pos']           = 27
+tmp['c1_cspan']         = 73
+tmp['nx']               = 100
+tmp['title_size']       = 36
+tmp['ticklabel_size']   = 24
+tmp['label_size']       = 36
+tmp['legend_size']      = 24
+tmp['freq_size']        = 60
+tmp['freq_xpos']        = -0.120
+tmp['goes_lw']          = 5
+tmp['kp_markersize']    = 20
+layouts['4band12hr']    = tmp
+
+def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
+        label_size='xx-large',legend_size='large',text_weight='bold',**kwargs):
+    rcp = matplotlib.rcParams
+    rcp['figure.titlesize']     = title_size 
+    rcp['axes.titlesize']       = title_size 
+    rcp['axes.labelsize']       = label_size
+    rcp['xtick.labelsize']      = ticklabel_size 
+    rcp['ytick.labelsize']      = ticklabel_size 
+    rcp['legend.fontsize']      = legend_size
+
+    rcp['figure.titleweight']   = text_weight
+    rcp['axes.titleweight']     = text_weight
+    rcp['axes.labelweight']     = text_weight
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
@@ -136,6 +155,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     else:
         lout = layouts.get(layout)
 
+    set_text_props(**lout)
+
     if band_obj is None:
         band_obj    = gl.BandData()
 
@@ -176,7 +197,10 @@ def make_figure(sTime,eTime,xkey='occurred',
     axs_to_adjust   = []
     omni            = Omni()
     ax              = plt.subplot2grid((ny,nx),(0,c1_pos),colspan=c1_span,rowspan=env_rspan)
-    omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True)
+    msize           = lout.get('kp_markersize',10)
+    dst_lw          = lout.get('goes_lw',2)
+    omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True,
+                        kp_markersize=msize,dst_lw=dst_lw)
     axs_to_adjust   += omni_axs
 
     ########################################
@@ -193,10 +217,11 @@ def make_figure(sTime,eTime,xkey='occurred',
     ax              = plt.subplot2grid((ny,nx),(env_rspan,c1_pos),colspan=c1_span,rowspan=env_rspan)
     xdct            = gl.prmd[xkey]
     xlabel          = xdct.get('label',xkey)
+    goes_lw         = lout.get('goes_lw',2)
     for sat_nr,gd in goes_dcts.items():
         goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
                 var_tags=gd['var_tags'],labels=gd['labels'],
-                legendLoc='upper right',legendSize=15,lw=2)
+                legendLoc='upper right',lw=goes_lw)
 
 #    with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
 #        fl.write(flares.to_string())
@@ -208,7 +233,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     ########################################
 
     title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
-    ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':20,'weight':'bold'})
+    size    = lout.get('label_size',20)
+    ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':size,'weight':'bold'})
     axs_to_adjust.append(ax)
 
     hist_maxes  = {}
@@ -236,8 +262,9 @@ def make_figure(sTime,eTime,xkey='occurred',
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist)
 
-        fdict   = {'size':lout.get('freq_size',35),'weight':'bold'}
-        ax.text(-0.075,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
+        fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
+        freq_xpos   = lout.get('freq_xpos',-0.075)
+        ax.text(freq_xpos,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
 
         hist_ax = ax
 

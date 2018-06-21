@@ -309,7 +309,7 @@ def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin
     title   = ' '.join([md['institution'],md['satellite_id'],'-',md['instrument']])
 #    ax.set_title(title)
 
-def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,ymin=1e-9,ymax=1e-2,legendSize=10,legendLoc=None,ax=None,**kwargs):
+def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,ymin=1e-9,ymax=1e-2,legendSize=None,legendLoc=None,ax=None,**kwargs):
     """Plot GOES X-Ray Data.
 
     Parameters
@@ -381,11 +381,13 @@ def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,y
 
     #Label Flare classes
     trans = matplotlib.transforms.blended_transform_factory(ax.transAxes, ax.transData)
-    classes = ['A', 'B', 'C', 'M', 'X']
-    decades = [  8,   7,   6,   5,   4]
+    classes = ['A', 'B', 'C', 'M', 'X', '']
+    decades = [  8,   7,   6,   5,   4,  3]
 
+    size    = matplotlib.rcParams['ytick.labelsize']
     for cls,dec in zip(classes,decades):
-        ax.text(1.01,2.5*10**(-dec),cls,transform=trans,fontdict={'size':14})
+        ax.text(1.01,10**(-dec),cls,transform=trans,fontdict={'size':size},va='center')
+        ax.axhline(10**(-dec),ls='--',color='0.8')
 
     #Format the y-axis
     ax.set_ylabel(r'W m$^{-2}$')
@@ -393,6 +395,8 @@ def goes_plot(goes_data,sTime=None,eTime=None,var_tags = ['B_AVG'],labels=None,y
     ax.set_ylim(1e-9,1e-2)
 
     ax.grid()
+    if legendSize is None:
+        legendSize = matplotlib.rcParams['legend.fontsize']
     ax.legend(prop={'size':legendSize},numpoints=1,loc=legendLoc)
 
     file_keys = list(goes_data['metadata'].keys()) 
