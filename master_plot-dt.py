@@ -49,13 +49,14 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
 
-    xbin_0  = 0.
-    xbin_1  = (xlim[1]-xlim[0]).total_seconds()/3600.
-    xbins = gl.get_bins((xbin_0,xbin_1), 10./60)
+    xbin_0  = xlim[0].hour + xlim[0].minute/60. + xlim[0].second/3600.
+    xbin_1  = xbin_0 + (xlim[1]-xlim[0]).total_seconds()/3600.
+    xbins   = gl.get_bins((xbin_0,xbin_1), 10./60)
+
     # y-axis: distance (km)
     ybins = gl.get_bins(ylim, 500)
 
-    tmp = df[xkey] - df[xkey].min()
+    tmp     = df[xkey] - df[xkey].min()
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
     if len(df[xkey]) > 1:
         hist, xb, yb = np.histogram2d(total_hours, df["dist_Km"], bins=[xbins, ybins])
@@ -81,9 +82,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         xdct    = gl.prmd[xkey]
         xlabel  = xdct.get('label',xkey)
         ax.set_xlabel(xlabel)
-#    else:
-#        for xtl in ax.get_xticklabels():
-#            xtl.set_visible(False)
 
     if plot_title:
         ax.set_title(title)
@@ -102,7 +100,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
     cmap    = plt.cm.jet
     norm    = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
-    xb_dt   = [xlim[0]+datetime.timedelta(hours=x) for x in xb]
+    xb_dt   = [xlim[0]+datetime.timedelta(hours=(x-xbin_0)) for x in xb]
     pcoll   = ax.contourf(xb_dt[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -135,8 +133,10 @@ def make_figure(sTime,eTime,xkey='occurred',
     date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
 
     print('Loading CSVs...')
-    df  = pd.DataFrame()
-    for dt in tqdm.tqdm(list(daterange(sTime, eTime))):
+    df      = pd.DataFrame()
+    dates   = list(daterange(sTime, eTime+datetime.timedelta(hours=24)))
+    if len(dates) == 0: dates = [sTime]
+    for dt in tqdm.tqdm(dates):
         dft         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
                         filter_region=filter_region,filter_region_kind=filter_region_kind)
         df          = df.append(dft,ignore_index=True)
@@ -366,8 +366,8 @@ if __name__ == "__main__":
     run_dcts    = []
 
     dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+    dct['eTime']                = datetime.datetime(2017, 9, 7,18)
     dct['rgc_lim']              = (0,3000)
     dct['maplim_region']        = 'Europe'
     dct['filter_region']        =  dct['maplim_region']
@@ -375,53 +375,63 @@ if __name__ == "__main__":
     dct['output_dir']           = output_dir
     run_dcts.append(dct)
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'World'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,20000)
-    dct['maplim_region']        = 'World'
-    dct['output_dir']           = output_dir
-    dct['log_hist']             = True
-    run_dcts.append(dct)
-
-    dct = {}
+#    dct = {}
 #    dct['sTime']                = datetime.datetime(2017, 9, 4)
 #    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['sTime']                = datetime.datetime(2017, 9, 6)
-    dct['eTime']                = datetime.datetime(2017, 9, 10)
-    dct['rgc_lim']              = (0,10000)
-    dct['maplim_region']        = 'Greater Carribean'
-    dct['filter_region']        = 'Carribean'
-    dct['filter_region_kind']   = 'endpoints'
-    dct['log_hist']             = True
-    dct['band_obj']             = gl.BandData([7,14])
-    dct['cparam']               = 'dist_Km'
-    dct['layout']               = '2band'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'Europe'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'US'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,20000)
+#    dct['maplim_region']        = 'World'
+#    dct['output_dir']           = output_dir
+#    dct['log_hist']             = True
+#    run_dcts.append(dct)
+#
+#    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9, 4)
+##    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['sTime']                = datetime.datetime(2017, 9, 6)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,10000)
+#    dct['maplim_region']        = 'Greater Carribean'
+#    dct['filter_region']        = 'Carribean'
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['cparam']               = 'dist_Km'
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
 
-    dct = dct.copy()
-    del dct['band_obj']
-    del dct['layout']
-    run_dcts.append(dct)
+#    dct = dct.copy()
+#    del dct['band_obj']
+#    del dct['layout']
+#    run_dcts.append(dct)
 
 
     if test_configuration:
