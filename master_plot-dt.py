@@ -30,6 +30,19 @@ tmp = {}
 layouts['default']  = tmp
 
 tmp = {}
+sf = 1.0
+tmp['figsize']          = (sf*40,sf*30)
+#tmp['env_rspan']        = 2
+#tmp['band_rspan']       = 3
+#tmp['c0_cspan']         = 23
+#tmp['c1_pos']           = 25
+#tmp['c1_cspan']         = 75
+#tmp['nx']               = 100
+#tmp['map_cbar_shrink']  = 0.75
+#tmp['freq_size']        = 50
+layouts['4band12hr']    = tmp
+
+tmp = {}
 sf = 0.9
 tmp['figsize']          = (sf*60,sf*30)
 tmp['env_rspan']        = 2
@@ -367,11 +380,13 @@ if __name__ == "__main__":
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 6,6)
-    dct['eTime']                = datetime.datetime(2017, 9, 7,18)
+    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
     dct['rgc_lim']              = (0,3000)
     dct['maplim_region']        = 'Europe'
     dct['filter_region']        =  dct['maplim_region']
     dct['filter_region_kind']   = 'mids'
+    dct['band_obj']             = gl.BandData([7,14,21,28])
+    dct['layout']               = '4band12hr'
     dct['output_dir']           = output_dir
     run_dcts.append(dct)
 
