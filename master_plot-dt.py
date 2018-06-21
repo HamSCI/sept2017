@@ -81,12 +81,18 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
 
+#    xb_size_min = 10.
+#    yb_size_km  = 500.
+
+    xb_size_min = 10.
+    yb_size_km  = 250.
+
     xbin_0  = xlim[0].hour + xlim[0].minute/60. + xlim[0].second/3600.
     xbin_1  = xbin_0 + (xlim[1]-xlim[0]).total_seconds()/3600.
-    xbins   = gl.get_bins((xbin_0,xbin_1), 10./60)
+    xbins   = gl.get_bins((xbin_0,xbin_1), xb_size_min/60)
 
     # y-axis: distance (km)
-    ybins = gl.get_bins(ylim, 500)
+    ybins = gl.get_bins(ylim, yb_size_km)
 
     tmp     = df[xkey] - df[xkey].min()
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
@@ -162,10 +168,6 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     band_dict   = band_obj.band_dict
 
-    date_str_0  = sTime.strftime('%d %b %Y')
-    date_str_1  = eTime.strftime('%d %b %Y')
-    date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
-
     print('Loading CSVs...')
     df      = pd.DataFrame()
     dates   = list(daterange(sTime, eTime+datetime.timedelta(hours=24)))
@@ -174,6 +176,13 @@ def make_figure(sTime,eTime,xkey='occurred',
         dft         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
                         filter_region=filter_region,filter_region_kind=filter_region_kind)
         df          = df.append(dft,ignore_index=True)
+
+    date_str_0  = sTime.strftime('%d %b %Y')
+    date_str_1  = eTime.strftime('%d %b %Y')
+    if eTime-sTime < datetime.timedelta(hours=24):
+        date_str    = sTime.strftime('%d %b %Y')
+    else:
+        date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
 
     # Plotting #############################
     print('Plotting...')
@@ -351,7 +360,10 @@ def make_figure(sTime,eTime,xkey='occurred',
     xpos    = 0.030
     ypos    = 0.925
     fdict   = {'size':50,'weight':'bold'}
-    title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
+    if eTime-sTime < datetime.timedelta(hours=24):
+        title   = date_str_0
+    else:
+        title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
     fig.text(xpos,ypos,title,fontdict=fdict)
 
     srcs    = '\n'.join([' '+x for x in gl.list_sources(df)])
@@ -410,6 +422,18 @@ if __name__ == "__main__":
     dct['eTime']                = datetime.datetime(2017, 9, 6,18)
     dct['rgc_lim']              = (0,3000)
     dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['band_obj']             = gl.BandData([7,14,21,28])
+    dct['layout']               = '4band12hr'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
+    dct['rgc_lim']              = (0,3000)
+    dct['maplim_region']        = 'US'
     dct['filter_region']        =  dct['maplim_region']
     dct['filter_region_kind']   = 'mids'
     dct['band_obj']             = gl.BandData([7,14,21,28])
