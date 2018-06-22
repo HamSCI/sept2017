@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     run_dcts = []
     rd = {}
-    rd['maplim_region'] = 'World'
+    rd['maplim_region'] = 'Greater Greater Carribean'
     rd['box']           = 'Greater Carribean'
     rd['plot_goes']     = True
     rd['output_dir']    = output_dir

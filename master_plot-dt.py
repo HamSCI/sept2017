@@ -41,6 +41,12 @@ tmp['c1_cspan']         = 75
 tmp['nx']               = 100
 tmp['map_cbar_shrink']  = 0.75
 tmp['freq_size']        = 50
+tmp['goes_lw']          = 5
+tmp['kp_markersize']    = 20
+tmp['title_size']       = 36
+tmp['ticklabel_size']   = 28
+tmp['label_size']       = 36
+tmp['legend_size']      = 24
 layouts['2band']        = tmp
 
 tmp = {}
@@ -148,10 +154,124 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     else:
         cbar.set_label('Ham Radio\nSpot Density')
 
+def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
+    if param == 'mids':
+        xx_param    = 'md_long'
+        yy_param    = 'md_lat'
+
+        mcolor      = 'blue'
+        marker      = 'o'
+        msize       = 5
+    elif param == 'tx':
+        xx_param    = 'tx_long'
+        yy_param    = 'tx_lat'
+        frame       = frame.drop_duplicates([xx_param,yy_param]).copy()
+
+        mcolor      = 'black'
+        marker      = '.'
+        msize       = 1
+
+    elif param == 'rx':
+        xx_param    = 'rx_long'
+        yy_param    = 'rx_lat'
+        frame       = frame.drop_duplicates([xx_param,yy_param]).copy()
+
+        mcolor      = 'blue'
+        marker      = 'o'
+        msize       = 20
+    elif param == 'box_in' or param == 'box_out':
+        rgn         = gl.regions.get(box)
+        lat_lim     = rgn.get('lat_lim')
+        lon_lim     = rgn.get('lon_lim')
+
+        df  = pd.DataFrame()
+        for trx in ['rx','tx']:
+            dft = frame.copy()
+            dft['endpoint_lat']  = dft['{!s}_lat'.format(trx)]
+            dft['endpoint_long'] = dft['{!s}_long'.format(trx)]
+            df  = df.append(dft,ignore_index=True)
+
+        lats    = df['endpoint_lat']
+        lons    = df['endpoint_long']
+
+        tf_lat  = np.logical_and(lats >= lat_lim[0],
+                                 lats <  lat_lim[1])
+
+        tf_lon  = np.logical_and(lons >= lon_lim[0],
+                                 lons <  lon_lim[1])
+
+        tf  = np.logical_and(tf_lat,tf_lon)
+
+        if param == 'box_out':
+            tf = np.logical_not(tf)
+        df          = df[tf].copy()
+
+        xx_param    = 'endpoint_long'
+        yy_param    = 'endpoint_lat'
+        frame       = df.drop_duplicates([xx_param,yy_param]).copy()
+
+        if param == 'box_in':
+            mcolor      = 'black'
+            marker      = 'o'
+            msize       = 50
+        else:
+            cparam      = 'dist_Km'
+            marker      = 'o'
+            msize       = 50
+    
+    xx      = frame[xx_param]
+    yy      = frame[yy_param]
+
+    if len(xx) == 0:
+        xx  = np.array([0,0])
+        yy  = np.array([0,0])
+
+    if cparam is None:
+        sct_dct = {}
+        sct_dct['color']    = mcolor
+        sct_dct['marker']   = marker
+        sct_dct['s']        = msize
+        sct_dct['zorder']   = 10
+        pcoll   = ax.scatter(xx,yy,**sct_dct)
+    else:
+        cc      = frame[cparam]
+        if len(xx) == 0:
+            cc  = np.array([0,0])
+
+        cdct    = gl.prmd[cparam]
+        cmap    = cdct.get('cmap',matplotlib.cm.jet)
+        vmin    = cdct.get('vmin',0)
+        vmax    = cdct.get('vmax',np.nanmax(cc))
+
+        sct_dct = {}
+        sct_dct['c']        = cc
+        sct_dct['cmap']     = cmap
+        sct_dct['vmin']     = vmin
+        sct_dct['vmax']     = vmax
+        sct_dct['marker']   = marker
+        sct_dct['s']        = msize
+        sct_dct['zorder']   = 10
+        pcoll   = ax.scatter(xx,yy,**sct_dct)
+
+        cb_props = {}
+        cb_props['shrink']      = lout.get('map_cbar_shrink',1.)
+        cb_props['fraction']    = lout.get('map_cbar_fraction',0.15)
+        cb_props['pad']         = lout.get('map_cbar_pad',0.05)
+        cb_props['aspect']      = lout.get('map_cbar_aspect',20)
+        cbar    = plt.colorbar(pcoll,ax=ax,**cb_props)
+
+        clabel  = cdct.get('label',cparam)
+        fontdict = {'size':'xx-large','weight':'normal'}
+        cbar.set_label(clabel,fontdict=fontdict)
+
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
         log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None,
-        cparam=None,layout=None):
+        map_midpoints=True,map_midpoints_cparam=None,
+        map_tx=False,map_tx_cparam=None,
+        map_rx=False,map_rx_cparam=None,
+        map_filter_region=False,
+        layout=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -287,45 +407,19 @@ def make_figure(sTime,eTime,xkey='occurred',
         ax.coastlines()
         ax.gridlines()
 
-        xx      = frame['md_long']
-        yy      = frame['md_lat']
-        if cparam is not None:
-            cc      = frame[cparam]
+        if map_midpoints:
+            plot_on_map(ax,frame,param='mids',cparam=map_midpoints_cparam,lout=lout)
 
-        if len(xx) == 0:
-            xx  = np.array([0,0])
-            yy  = np.array([0,0])
-            cc  = np.array([0,0])
+        if map_tx:
+            plot_on_map(ax,frame,param='tx',cparam=map_tx_cparam,lout=lout)
 
-        if cparam is None:
-            pcoll   = ax.scatter(xx,yy,color='blue',marker="o",zorder=10,s=5)
-        else:
-            cdct    = gl.prmd[cparam]
-            cmap    = cdct.get('cmap',matplotlib.cm.jet)
-            vmin    = cdct.get('vmin',0)
-            vmax    = cdct.get('vmax',np.nanmax(cc))
+        if map_rx:
+            plot_on_map(ax,frame,param='rx',cparam=map_rx_cparam,lout=lout)
 
-            pcoll   = ax.scatter(xx,yy, c=cc, cmap=cmap, vmin=vmin, vmax=vmax, marker="o",zorder=10,s=5)
+        if map_filter_region:
+            plot_on_map(ax,frame,param='box_out',box=filter_region,lout=lout)
+            plot_on_map(ax,frame,param='box_in',box=filter_region,lout=lout)
 
-            cb_props = {}
-            cb_props['shrink']      = lout.get('map_cbar_shrink',1.)
-            cb_props['fraction']    = lout.get('map_cbar_fraction',0.15)
-            cb_props['pad']         = lout.get('map_cbar_pad',0.05)
-            cb_props['aspect']      = lout.get('map_cbar_aspect',20)
-            cbar    = plt.colorbar(pcoll,ax=ax,**cb_props)
-
-            clabel  = cdct.get('label',cparam)
-            fontdict = {'size':'xx-large','weight':'normal'}
-            cbar.set_label(clabel,fontdict=fontdict)
-
-#        tx_df   = frame[['tx_long', 'tx_lat']].drop_duplicates()
-#        label   = 'TX (N = {!s})'.format(len(tx_df))
-#        tx_df.plot.scatter('tx_long', 'tx_lat', color="black", ax=ax, marker="o",label=label,zorder=20,s=1)
-#
-#        rx_df   = frame[['rx_long', 'rx_lat']].drop_duplicates()
-#        label   = 'RX (N = {!s})'.format(len(rx_df))
-#        rx_df.plot.scatter('rx_long', 'rx_lat', color="blue", ax=ax, marker="*",label=label,zorder=30,s=10)
-    
         if box is not None:
             rgn = gl.regions.get(box)
             x0  = rgn['lon_lim'][0]
@@ -338,8 +432,8 @@ def make_figure(sTime,eTime,xkey='occurred',
 
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
-        label   = 'Midpoints (N = {!s})'.format(n_mids)
-        fdict   = {'size':24}
+        label   = 'Radio Spots (N = {!s})'.format(n_mids)
+        fdict   = {'size':lout.get('label_size',24)}
         ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
 
     if calc_hist_maxes:
@@ -366,7 +460,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
     fig.text(xpos,ypos,title,fontdict=fdict)
 
-    srcs    = '\n'.join([' '+x for x in gl.list_sources(df)])
+    meters  = [x['meters'] for x in band_obj.band_dict.values()]
+    srcs    = '\n'.join([' '+x for x in gl.list_sources(df,bands=meters)])
     txt     = 'Ham Radio Networks\n' + srcs
     fdict   = {'size':30,'weight':'bold'}
     fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
@@ -417,29 +512,29 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
-    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'Europe'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['band_obj']             = gl.BandData([7,14,21,28])
-    dct['layout']               = '4band12hr'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+#    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'Europe'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['band_obj']             = gl.BandData([7,14,21,28])
+#    dct['layout']               = '4band12hr'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
-    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['band_obj']             = gl.BandData([7,14,21,28])
-    dct['layout']               = '4band12hr'
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+#    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'US'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['band_obj']             = gl.BandData([7,14,21,28])
+#    dct['layout']               = '4band12hr'
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
 
 #    dct = {}
 #    dct['sTime']                = datetime.datetime(2017, 9, 4)
@@ -468,37 +563,43 @@ if __name__ == "__main__":
 #    dct['maplim_region']        = 'World'
 #    dct['output_dir']           = output_dir
 #    run_dcts.append(dct)
-#
-#    dct = {}
+
+##    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9, 10)
+##    dct['eTime']                = datetime.datetime(2017, 9, 11)
+##    dct['rgc_lim']              = (0,3000)
+##    dct['maplim_region']        = 'Mexico'
+##    dct['output_dir']           = output_dir
+##    dct['log_hist']             = True
+#    run_dcts.append(dct)
+
+    dct = {}
 #    dct['sTime']                = datetime.datetime(2017, 9, 4)
 #    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['rgc_lim']              = (0,20000)
+    dct['sTime']                = datetime.datetime(2017, 9, 6)
+    dct['eTime']                = datetime.datetime(2017, 9, 10)
+    dct['rgc_lim']              = (0,5000)
 #    dct['maplim_region']        = 'World'
-#    dct['output_dir']           = output_dir
-#    dct['log_hist']             = True
-#    run_dcts.append(dct)
-#
-#    dct = {}
-##    dct['sTime']                = datetime.datetime(2017, 9, 4)
-##    dct['eTime']                = datetime.datetime(2017, 9, 14)
-#    dct['sTime']                = datetime.datetime(2017, 9, 6)
-#    dct['eTime']                = datetime.datetime(2017, 9, 10)
-#    dct['rgc_lim']              = (0,10000)
-#    dct['maplim_region']        = 'Greater Carribean'
-#    dct['filter_region']        = 'Carribean'
-#    dct['filter_region_kind']   = 'endpoints'
-#    dct['log_hist']             = True
-#    dct['band_obj']             = gl.BandData([7,14])
-#    dct['cparam']               = 'dist_Km'
-#    dct['layout']               = '2band'
-#    dct['output_dir']           = output_dir
-#    run_dcts.append(dct)
+    dct['maplim_region']        = 'Greater Greater Carribean'
+    dct['box']                  = 'Greater Carribean'
+    dct['filter_region']        = dct['box']
+    dct['filter_region_kind']   = 'endpoints'
+    dct['log_hist']             = True
+    dct['band_obj']             = gl.BandData([7,14])
+    dct['map_midpoints']        = False
+    dct['map_filter_region']    = True
+    dct['layout']               = '2band'
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
 
-#    dct = dct.copy()
-#    del dct['band_obj']
-#    del dct['layout']
-#    run_dcts.append(dct)
+    dct = dct.copy()
+    del dct['log_hist']
+    run_dcts.append(dct)
 
+    dct = dct.copy()
+    del dct['band_obj']
+    del dct['layout']
+    run_dcts.append(dct)
 
     if test_configuration:
         print('Plotting...')

@@ -70,14 +70,26 @@ tmp['lat_lim']  = (  30., 65.)
 regions['Europe']   = tmp
 
 tmp     = {}
-tmp['lon_lim']  = ( -90.,-60.)
-tmp['lat_lim']  = (  15., 30.)
+tmp['lon_lim']  = ( -86.,-65.)
+tmp['lat_lim']  = (  17., 24.)
 regions['Carribean']    = tmp
 
 tmp     = {}
-tmp['lon_lim']  = ( -120.,0.)
-tmp['lat_lim']  = (  -20., 60.)
+#tmp['lon_lim']  = ( -120.,0.)
+#tmp['lat_lim']  = (  -20., 60.)
+tmp['lon_lim']  = ( -86.,-65.)
+tmp['lat_lim']  = (  17., 30.)
 regions['Greater Carribean']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -130.,-55.)
+tmp['lat_lim']  = (   10., 55.)
+regions['Greater Greater Carribean']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -130.,-60.)
+tmp['lat_lim']  = (  0., 40.)
+regions['Mexico']    = tmp
 
 sources     = OrderedDict()
 tmp = {}
@@ -462,9 +474,13 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
 
     return df
 
-def list_sources(df,count=True):
+def list_sources(df,count=True,bands=None):
     srcs    = df.source.unique()
     srcs.sort()
+
+    if bands is not None:
+        tf  = df['band'].apply(lambda x: x in bands)
+        df  = df[tf].copy()
 
     names   = []
     for src in srcs:
