@@ -271,6 +271,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         map_tx=False,map_tx_cparam=None,
         map_rx=False,map_rx_cparam=None,
         map_filter_region=False,
+        solar_zenith_region=None,
         layout=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
@@ -303,6 +304,12 @@ def make_figure(sTime,eTime,xkey='occurred',
         date_str    = sTime.strftime('%d %b %Y')
     else:
         date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
+
+
+    sza = None
+    # Solar Zenith Calculation #############
+    if solar_zenith_region is not None:
+        sza,sza_lat,sza_lon = gl.calc_solar_zenith_region(sTime,eTime,region=solar_zenith_region)
 
     # Plotting #############################
     print('Plotting...')
@@ -369,7 +376,7 @@ def make_figure(sTime,eTime,xkey='occurred',
     hist_maxes  = {}
     for band_inx, (band_key,band) in enumerate(band_dict.items()):
         fig_row = n_env*env_rspan + band_inx*band_rspan
-        if fig_row == ny-1:
+        if band_inx == len(band_dict)-1:
             xlabels = True
         else:
             xlabels = False
@@ -394,6 +401,14 @@ def make_figure(sTime,eTime,xkey='occurred',
         fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
         freq_xpos   = lout.get('freq_xpos',-0.075)
         ax.text(freq_xpos,0.5,band.get('freq_name'),transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
+
+        # Solar Zenith Angle
+        if sza is not None:
+            sza_ax  = ax.twinx()
+            sza_ax.plot(sza.index,sza.els,ls='--',lw=lout.get('goes_lw',2),color='white')
+            ylabel  = u'Solar Zenith Angle\n@ ({:.0f}\N{DEGREE SIGN} N, {:.0f}\N{DEGREE SIGN} E)'.format(sza_lat,sza_lon)
+            sza_ax.set_ylabel(ylabel)
+            sza_ax.set_ylim(110,0)
 
         hist_ax = ax
 
@@ -429,6 +444,9 @@ def make_figure(sTime,eTime,xkey='occurred',
             
             p   = matplotlib.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=500)
             ax.add_patch(p)
+
+        if sza is not None:
+            ax.scatter([sza_lon],[sza_lat],marker='*',s=600,color='yellow',edgecolors='black',zorder=500)
 
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
@@ -582,6 +600,7 @@ if __name__ == "__main__":
 #    dct['maplim_region']        = 'World'
     dct['maplim_region']        = 'Greater Greater Carribean'
     dct['box']                  = 'Greater Carribean'
+    dct['solar_zenith_region']  = 'Greater Carribean'
     dct['filter_region']        = dct['box']
     dct['filter_region_kind']   = 'endpoints'
     dct['log_hist']             = True

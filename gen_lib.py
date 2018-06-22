@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import geopack
+import calcSun
 
 de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
 dxf_prop        = {'marker':'*','color':'blue'}
@@ -490,3 +491,32 @@ def list_sources(df,count=True,bands=None):
             name    = '{!s} (N={!s})'.format(name,cnt)
         names.append(name)
     return names
+
+def sunAzEl(dates,lat,lon):
+    azs, els = [], []
+    for date in dates:
+        jd    = calcSun.getJD(date) 
+        t     = calcSun.calcTimeJulianCent(jd)
+        ut    = ( jd - (int(jd - 0.5) + 0.5) )*1440.
+        az,el = calcSun.calcAzEl(t, ut, lat, lon, 0.)
+        azs.append(az)
+        els.append(el)
+    return azs,els
+
+def calc_solar_zenith_region(sTime,eTime,region='World'):
+    rgn     = regions.get(region)
+    lat_lim = rgn.get('lat_lim')
+    lon_lim = rgn.get('lon_lim')
+
+    sza_lat = (lat_lim[1]-lat_lim[0])/2. + lat_lim[0]
+    sza_lon = (lon_lim[1]-lon_lim[0])/2. + lon_lim[0]
+
+    sza_dts = [sTime]
+    while sza_dts[-1] < eTime:
+        sza_dts.append(sza_dts[-1]+datetime.timedelta(minutes=5))
+
+    azs,els = sunAzEl(sza_dts,sza_lat,sza_lon)
+    
+    sza = pd.DataFrame({'els':els},index=sza_dts)
+
+    return (sza,sza_lat,sza_lon)
