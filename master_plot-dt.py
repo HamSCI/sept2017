@@ -31,6 +31,11 @@ tmp = {}
 layouts['default']  = tmp
 
 tmp = {}
+sf = 1.0
+tmp['figsize']          = (sf*30,sf*24)
+layouts['6band3day']    = tmp
+
+tmp = {}
 sf = 0.9
 tmp['figsize']          = (sf*60,sf*30)
 tmp['env_rspan']        = 2
@@ -69,6 +74,27 @@ tmp['sza_lw']           = 3
 tmp['sza_label_size']   = 28
 tmp['sza_sun_size']     = 1500
 layouts['4band12hr']    = tmp
+
+tmp = {}
+sf = 1.0
+tmp['figsize']          = (sf*40,sf*35)
+tmp['c0_cspan']         = 23
+tmp['c1_pos']           = 27
+tmp['c1_cspan']         = 80
+tmp['nx']               = 100
+tmp['title_size']       = 36
+tmp['ticklabel_size']   = 24
+tmp['label_size']       = 28
+tmp['legend_size']      = 24
+tmp['freq_size']        = 60
+tmp['freq_xpos']        = -0.125
+tmp['goes_lw']          = 5
+tmp['kp_markersize']    = 20
+tmp['hist_cbar_pad']    = 0.085
+tmp['sza_lw']           = 3
+tmp['sza_label_size']   = 26
+tmp['sza_sun_size']     = 1500
+layouts['6band3day']    = tmp
 
 def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
         label_size='xx-large',legend_size='large',text_weight='bold',**kwargs):
@@ -295,7 +321,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     print('Loading CSVs...')
     df      = pd.DataFrame()
-    dates   = list(daterange(sTime, eTime+datetime.timedelta(hours=24)))
+    dates   = list(daterange(sTime, eTime+datetime.timedelta(hours=48)))
     if len(dates) == 0: dates = [sTime]
     for dt in tqdm.tqdm(dates):
         dft         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
@@ -542,6 +568,25 @@ if __name__ == "__main__":
     global_cbars        = False
 
     run_dcts    = []
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9,  7)
+    dct['eTime']                = datetime.datetime(2017, 9, 10)
+    dct['rgc_lim']              = (0,6000)
+    dct['maplim_region']        = 'Europe'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['solar_zenith_region']  =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['layout']               = '6band3day'
+    dct['log_hist']             = True
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+    dct = dct.copy()
+    dct['maplim_region']        = 'US'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['solar_zenith_region']  =  dct['maplim_region']
+    run_dcts.append(dct)
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 6,6)
