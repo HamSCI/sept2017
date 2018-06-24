@@ -1,8 +1,11 @@
+import datetime
 from datetime import timedelta, date
 
-def daterange(start_date, end_date):
-    """ Get every date in the range start_date -> end_date (exc) """
-    for n in range(int ((end_date - start_date).days)):
+def daterange(sTime,eTime):
+    """ Get every date in the range start_date -> end_date (inc) """
+    start_date  = datetime.datetime(sTime.year,sTime.month,sTime.day) 
+    end_date    = datetime.datetime(eTime.year,eTime.month,eTime.day) 
+    for n in range(int ((end_date - start_date).days)+1):
         yield start_date + timedelta(n)
 
 def dt64_to_ut_hours(dt64):

@@ -76,11 +76,14 @@ tmp['lat_lim']  = (  17., 24.)
 regions['Carribean']    = tmp
 
 tmp     = {}
-#tmp['lon_lim']  = ( -120.,0.)
-#tmp['lat_lim']  = (  -20., 60.)
 tmp['lon_lim']  = ( -86.,-65.)
 tmp['lat_lim']  = (  17., 30.)
 regions['Greater Carribean']    = tmp
+
+tmp     = {}
+tmp['lon_lim']  = ( -86.,-80.)
+tmp['lat_lim']  = (  24., 30.)
+regions['Florida']    = tmp
 
 tmp     = {}
 tmp['lon_lim']  = ( -130.,-55.)

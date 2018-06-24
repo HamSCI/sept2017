@@ -112,7 +112,8 @@ def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
 
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
-        calc_hist_maxes=False,xlabels=True,plot_title=False,cbar_pad=0.05):
+        calc_hist_maxes=False,xlabels=True,plot_title=False,cbar_pad=0.05,
+        xb_size_min=10.,yb_size_km=250.):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
@@ -120,8 +121,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 #    xb_size_min = 10.
 #    yb_size_km  = 500.
 
-    xb_size_min = 10.
-    yb_size_km  = 250.
 
     xbin_0  = xlim[0].hour + xlim[0].minute/60. + xlim[0].second/3600.
     xbin_1  = xbin_0 + (xlim[1]-xlim[0]).total_seconds()/3600.
@@ -130,10 +129,13 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     # y-axis: distance (km)
     ybins = gl.get_bins(ylim, yb_size_km)
 
-    tmp     = df[xkey] - df[xkey].min()
+    dt_min      = df[xkey].min()
+    df_dt_0     = datetime.datetime(dt_min.year,dt_min.month,dt_min.day)
+    tmp         = df[xkey] - df_dt_0
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
-    if len(df[xkey]) > 1:
-        hist, xb, yb = np.histogram2d(total_hours, df["dist_Km"], bins=[xbins, ybins])
+#    import ipdb; ipdb.set_trace()
+    if len(df[xkey]) > 2:
+       hist, xb, yb = np.histogram2d(total_hours, df["dist_Km"], bins=[xbins, ybins])
     else:
         xb      = xbins
         yb      = ybins
@@ -297,6 +299,7 @@ def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
         log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None,
+        xb_size_min=10.,yb_size_km=250.,
         map_midpoints=True,map_midpoints_cparam=None,
         map_tx=False,map_tx_cparam=None,
         map_rx=False,map_rx_cparam=None,
@@ -321,12 +324,15 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     print('Loading CSVs...')
     df      = pd.DataFrame()
-    dates   = list(daterange(sTime, eTime+datetime.timedelta(hours=48)))
-    if len(dates) == 0: dates = [sTime]
+    dates   = list(daterange(sTime, eTime))
     for dt in tqdm.tqdm(dates):
         dft         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
                         filter_region=filter_region,filter_region_kind=filter_region_kind)
         df          = df.append(dft,ignore_index=True)
+
+    tf  = np.logical_and(df['occurred'] >= sTime,
+                         df['occurred'] <= eTime+datetime.timedelta(minutes=xb_size_min))
+    df  = df[tf].copy()
 
     date_str_0  = sTime.strftime('%d %b %Y')
     date_str_1  = eTime.strftime('%d %b %Y')
@@ -428,7 +434,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         pad     = lout.get('hist_cbar_pad',0.05)
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist,
-                    cbar_pad=pad)
+                    cbar_pad=pad,xb_size_min=xb_size_min,yb_size_km=yb_size_km)
 
         fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
         freq_xpos   = lout.get('freq_xpos',-0.075)
@@ -570,25 +576,6 @@ if __name__ == "__main__":
     run_dcts    = []
 
     dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9,  7)
-    dct['eTime']                = datetime.datetime(2017, 9, 10)
-    dct['rgc_lim']              = (0,6000)
-    dct['maplim_region']        = 'Europe'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['solar_zenith_region']  =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['layout']               = '6band3day'
-    dct['log_hist']             = True
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = dct.copy()
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['solar_zenith_region']  =  dct['maplim_region']
-    run_dcts.append(dct)
-
-    dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 6,6)
     dct['eTime']                = datetime.datetime(2017, 9, 6,18)
     dct['rgc_lim']              = (0,3000)
@@ -617,19 +604,10 @@ if __name__ == "__main__":
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 4)
     dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,20000)
-    dct['maplim_region']        = 'World'
-    dct['log_hist']             = True
-    dct['output_dir']           = output_dir
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 6)
-    dct['eTime']                = datetime.datetime(2017, 9, 10)
     dct['rgc_lim']              = (0,5000)
     dct['maplim_region']        = 'Greater Greater Carribean'
     dct['box']                  = 'Greater Carribean'
-    dct['solar_zenith_region']  = 'Greater Carribean'
+    dct['solar_zenith_region']  = dct['box']
     dct['filter_region']        = dct['box']
     dct['filter_region_kind']   = 'endpoints'
     dct['log_hist']             = True
@@ -640,10 +618,54 @@ if __name__ == "__main__":
     dct['output_dir']           = output_dir
     run_dcts.append(dct)
 
-    dct = dct.copy()
-    del dct['band_obj']
-    del dct['layout']
+#    dct = dct.copy()
+#    del dct['band_obj']
+#    del dct['layout']
+#    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9,  7)
+    dct['eTime']                = datetime.datetime(2017, 9, 10)
+    dct['rgc_lim']              = (0,10000)
+    dct['maplim_region']        = 'World'
+    dct['filter_region']        =  dct['maplim_region']
+    dct['filter_region_kind']   = 'mids'
+    dct['layout']               = '6band3day'
+    dct['log_hist']             = True
+    dct['output_dir']           = output_dir
     run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 4)
+    dct['eTime']                = datetime.datetime(2017, 9, 14)
+    dct['rgc_lim']              = (0,20000)
+    dct['maplim_region']        = 'World'
+    dct['log_hist']             = True
+    dct['output_dir']           = output_dir
+    run_dcts.append(dct)
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  7)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,10000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'Europe'
+#    dct['solar_zenith_region']  = dct['filter_region']
+#    dct['box']                  = dct['filter_region']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    dct['layout']               = '6band3day'
+#    run_dcts.append(dct)
+#
+#    dct = dct.copy()
+#    dct['filter_region']        = 'US'
+#    dct['solar_zenith_region']  = dct['filter_region']
+#    dct['box']                  = dct['filter_region']
+#    run_dcts.append(dct)
+
 
     if test_configuration:
         print('Plotting...')
