@@ -31,11 +31,6 @@ tmp = {}
 layouts['default']  = tmp
 
 tmp = {}
-sf = 1.0
-tmp['figsize']          = (sf*30,sf*24)
-layouts['6band3day']    = tmp
-
-tmp = {}
 sf = 0.9
 tmp['figsize']          = (sf*60,sf*30)
 tmp['env_rspan']        = 2
@@ -586,6 +581,7 @@ if __name__ == "__main__":
     dct['band_obj']             = gl.BandData([7,14,21,28])
     dct['layout']               = '4band12hr'
     dct['output_dir']           = output_dir
+    dct['fname']                = 'flareEU'
     run_dcts.append(dct)
 
     dct = {}
@@ -599,6 +595,7 @@ if __name__ == "__main__":
     dct['band_obj']             = gl.BandData([7,14,21,28])
     dct['layout']               = '4band12hr'
     dct['output_dir']           = output_dir
+    dct['fname']                = 'flareUS'
     run_dcts.append(dct)
 
     dct = {}
@@ -616,6 +613,7 @@ if __name__ == "__main__":
     dct['map_filter_region']    = True
     dct['layout']               = '2band'
     dct['output_dir']           = output_dir
+    dct['fname']                = 'carribean'
     run_dcts.append(dct)
 
 #    dct = dct.copy()
@@ -633,6 +631,7 @@ if __name__ == "__main__":
     dct['layout']               = '6band3day'
     dct['log_hist']             = True
     dct['output_dir']           = output_dir
+    dct['fname']                = 'geomag'
     run_dcts.append(dct)
 
     dct = {}
@@ -642,6 +641,7 @@ if __name__ == "__main__":
     dct['maplim_region']        = 'World'
     dct['log_hist']             = True
     dct['output_dir']           = output_dir
+    dct['fname']                = 'summary'
     run_dcts.append(dct)
 
 #    dct = {}
