@@ -370,6 +370,11 @@ def make_figure(sTime,eTime,xkey='occurred',
                         kp_markersize=msize,dst_lw=dst_lw)
     axs_to_adjust   += omni_axs
 
+#    tf  = np.logical_and(omni.df.index >= sTime,
+#                         omni.df.index <  eTime)
+#
+#    odf = omni.df[tf].copy()
+
     ########################################
     goes_dcts       = OrderedDict()
     goes_dcts[13]   = {}
@@ -377,7 +382,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
     for sat_nr,gd in goes_dcts.items():
         gd['data']      = goes.read_goes(sTime,eTime,sat_nr=sat_nr)
-#        gd['flares']    = goes.find_flares(gd['data'],min_class='M5',window_minutes=60)
+        gd['flares']    = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
         gd['var_tags']  = ['B_AVG']
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
@@ -390,13 +395,14 @@ def make_figure(sTime,eTime,xkey='occurred',
                 var_tags=gd['var_tags'],labels=gd['labels'],
                 legendLoc='upper right',lw=goes_lw)
 
-#    with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
-#        fl.write(flares.to_string())
+#        flares  = gd['flares']
+#        with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
+#            fl.write(flares.to_string())
 #
-#    for key,flare in flares.iterrows():
-#        label   = '{0} Class Flare @ {1}'.format(flare['class'],key.strftime('%H%M UT'))
-#        ut_hr   = goes.ut_hours(key)
-#        ax.plot(ut_hr,flare['B_AVG'],'o',label=label,color='blue')
+#        for key,flare in flares.iterrows():
+#            label   = '{0} Class Flare @ {1}'.format(flare['class'],key.strftime('%H%M UT'))
+##            ut_hr   = goes.ut_hours(key)
+#            ax.plot(key,flare['B_AVG'],'o',label=label,color='blue',markersize=20)
     ########################################
 
     title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
