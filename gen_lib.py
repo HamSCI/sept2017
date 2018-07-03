@@ -73,12 +73,12 @@ regions['Europe']   = tmp
 tmp     = {}
 tmp['lon_lim']  = ( -86.,-65.)
 tmp['lat_lim']  = (  17., 24.)
-regions['Carribean']    = tmp
+regions['Caribbean']    = tmp
 
 tmp     = {}
 tmp['lon_lim']  = ( -86.,-65.)
 tmp['lat_lim']  = (  17., 30.)
-regions['Greater Carribean']    = tmp
+regions['Greater Caribbean']    = tmp
 
 tmp     = {}
 tmp['lon_lim']  = ( -86.,-80.)
@@ -88,7 +88,7 @@ regions['Florida']    = tmp
 tmp     = {}
 tmp['lon_lim']  = ( -130.,-55.)
 tmp['lat_lim']  = (   10., 55.)
-regions['Greater Greater Carribean']    = tmp
+regions['Greater Greater Caribbean']    = tmp
 
 tmp     = {}
 tmp['lon_lim']  = ( -130.,-60.)

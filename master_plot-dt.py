@@ -8,12 +8,13 @@ from collections import OrderedDict
 
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import PolyCollection
+import cartopy.crs as ccrs
 
 import numpy as np
 import pandas as pd
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 
 import tqdm
 
@@ -108,14 +109,13 @@ def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
 def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, title: str,
         xkey='occurred',xlim=None,ylim=(0,3000),vmin=None,vmax=None,log_hist=False,
         calc_hist_maxes=False,xlabels=True,plot_title=False,cbar_pad=0.05,
-        xb_size_min=10.,yb_size_km=250.):
+        xb_size_min=10.,yb_size_km=250.,stat=None,plot_type='contour'):
     # TODO: Make all of this stuff configurable
     # Ultimately the goal is for this to be very versatile
     # x-axis: UTC
 
-#    xb_size_min = 10.
+#    xb_size_min = 30.
 #    yb_size_km  = 500.
-
 
     xbin_0  = xlim[0].hour + xlim[0].minute/60. + xlim[0].second/3600.
     xbin_1  = xbin_0 + (xlim[1]-xlim[0]).total_seconds()/3600.
@@ -128,7 +128,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     df_dt_0     = datetime.datetime(dt_min.year,dt_min.month,dt_min.day)
     tmp         = df[xkey] - df_dt_0
     total_hours = tmp.map(lambda x: x.total_seconds()/3600.)
-#    import ipdb; ipdb.set_trace()
     if len(df[xkey]) > 2:
        hist, xb, yb = np.histogram2d(total_hours, df["dist_Km"], bins=[xbins, ybins])
     else:
@@ -136,15 +135,57 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
         yb      = ybins
         hist    = np.zeros((len(xb)-1,len(yb)-1))
 
-    vm_scale    = 0.6
-    if log_hist:
-        tf          = hist >= 1
-        tmp         = np.log10(hist[tf])
+    if stat is None:
+        vm_scale    = 0.6
+        cbar_label  = 'Ham Radio\nSpot Density'
+        if log_hist:
+            tf          = hist >= 1
+            tmp         = np.log10(hist[tf])
 
-        hist_1      = hist*0.
-        hist_1[tf]  = tmp
-        hist        = hist_1
+            hist_1      = hist*0.
+            hist_1[tf]  = tmp
+            hist        = hist_1
+            vm_scale    = 0.8
+            cbar_label  = 'log10(Ham Radio\nSpot Density)'
+
+        if vmin is None: vmin    = 0
+        if vmax is None:
+            vmax    = vm_scale*np.max(hist)
+            if np.sum(hist) == 0: vmax = 1.0
+    else:
+        stat_param  = 'snr'
+
+        hist[:] = np.nan
+        for xb_inx,xb_0 in enumerate(xb[:-1]):
+            xb_1    = xb[xb_inx+1]
+            for yb_inx,yb_0 in enumerate(yb[:-1]):
+                yb_1    = yb[yb_inx+1]
+
+                tf_x    = np.logical_and(total_hours >= xb_0,
+                                         total_hours <  xb_1)
+
+                tf_y    = np.logical_and(df['dist_Km'] >= yb_0,
+                                         df['dist_Km'] <  yb_1)
+
+                tf      = np.logical_and(tf_x,tf_y)
+                if np.sum(tf) == 0: continue
+
+                val     = df[tf][stat_param].apply(stat)
+
+                hist[xb_inx,yb_inx] = val
+
+        cbar_label  = '{!s}({!s})'.format(stat,stat_param)
+        lval_label  = cbar_label 
+
         vm_scale    = 0.8
+        if vmin is None: 
+            vmin    = np.nanmin(hist) + vm_scale*np.abs(np.nanmin(hist))
+        if vmax is None:
+            vmax    = vm_scale*np.nanmax(hist)
+            if np.sum(hist) == 0: vmax = 1.0
+
+#        tf          = np.isnan(hist)
+#        hist[tf]    = vmin
 
     if calc_hist_maxes:
         return hist
@@ -159,27 +200,49 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
     ax.set_ylabel('R_gc [km]')
 
-    # "borrowed" from SEQP
-    if vmin is None:
-        vmin    = 0
-
-    if vmax is None:
-        vmax    = vm_scale*np.max(hist)
-        if np.sum(hist) == 0: vmax = 1.0
-
     levels  = np.linspace(vmin,vmax,15)
 
     cmap    = plt.cm.jet
-    norm    = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
     xb_dt   = [xlim[0]+datetime.timedelta(hours=(x-xbin_0)) for x in xb]
-    pcoll   = ax.contourf(xb_dt[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
+    if plot_type == 'contour':
+        norm    = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
+        pcoll   = ax.contourf(xb_dt[:-1],yb[:-1],hist.T,levels,norm=norm,cmap=cmap)
+
+        cbar    = plt.colorbar(pcoll,ax=ax,pad=cbar_pad)
+        cbar.set_label(cbar_label)
+    elif plot_type == '2d_hist':
+        verts   = []
+        vals    = []
+        for xb_inx in range(len(xb_dt)-1):
+            xb_0    = matplotlib.dates.date2num(xb_dt[xb_inx])
+            xb_1    = matplotlib.dates.date2num(xb_dt[xb_inx+1])
+
+            for yb_inx,yb_0 in enumerate(yb[:-1]):
+                yb_1    = yb[yb_inx+1]
+                x1,y1 = (xb_0,yb_0)
+                x2,y2 = (xb_1,yb_0)
+                x3,y3 = (xb_1,yb_1)
+                x4,y4 = (xb_0,yb_1)
+                verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
+
+                vals.append(hist[xb_inx,yb_inx])
+
+        bounds  = np.linspace(vmin,vmax,256)
+        norm    = matplotlib.colors.BoundaryNorm(bounds,cmap.N)
+
+        pcoll   = PolyCollection(np.array(verts),edgecolors='face',closed=False,cmap=cmap,norm=norm)
+        pcoll.set_array(np.array(vals))
+        ax.add_collection(pcoll,autolim=False)
+
+        cbar    = plt.colorbar(pcoll,ax=ax,pad=cbar_pad)
+        cbar.set_label(cbar_label)
+    elif plot_type == 'line':
+        yy  = np.sum(hist,axis=1)
+        ax.plot(xb_dt[:-1],yy)
+        ylim = None
+
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    cbar    = plt.colorbar(pcoll,ax=ax,pad=cbar_pad)
-    if log_hist:
-        cbar.set_label('log10(Ham Radio\nSpot Density)')
-    else:
-        cbar.set_label('Ham Radio\nSpot Density')
 
 def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
     if param == 'mids':
@@ -294,17 +357,20 @@ def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
         log_hist=False,output_dir='output',calc_hist_maxes=False,fname=None,box=None,band_obj=None,
-        xb_size_min=10.,yb_size_km=250.,
+        xb_size_min=10.,yb_size_km=250.,stat=None,plot_type='contour',
         map_midpoints=True,map_midpoints_cparam=None,
         map_tx=False,map_tx_cparam=None,
         map_rx=False,map_rx_cparam=None,
         map_filter_region=False,
         solar_zenith_region=None,
+        find_flares=False,flare_labels=True,
+        plot_summary=False,
         layout=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
 
+    mark_times  = []
     if layout is None:
         lout = layouts.get('default')
     else:
@@ -336,7 +402,6 @@ def make_figure(sTime,eTime,xkey='occurred',
     else:
         date_str    = '{!s} - {!s}'.format(date_str_0,date_str_1)
 
-
     sza = None
     # Solar Zenith Calculation #############
     if solar_zenith_region is not None:
@@ -354,11 +419,16 @@ def make_figure(sTime,eTime,xkey='occurred',
     n_env       = 2
     nx          = lout.get('nx',5)
     ny          = len(band_dict)*band_rspan + n_env*env_rspan
+    if plot_summary:
+        ny  += band_rspan
     
     sf      = lout.get('sf',1.00)  # Scale Factor
     figsize = lout.get('figsize',(sf*40, sf*4*len(band_dict)))
 
     fig = plt.figure(figsize=figsize)
+
+    # Keep track of all of the time series axes.
+    ts_axs  = []
 
     # Geospace Environment ####################
     axs_to_adjust   = []
@@ -369,6 +439,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True,
                         kp_markersize=msize,dst_lw=dst_lw)
     axs_to_adjust   += omni_axs
+    for ax in omni_axs:
+        ts_axs.append({'ax':ax,'axvline_props':{'color':'k'}})
 
 #    tf  = np.logical_and(omni.df.index >= sTime,
 #                         omni.df.index <  eTime)
@@ -380,11 +452,21 @@ def make_figure(sTime,eTime,xkey='occurred',
     goes_dcts[13]   = {}
     goes_dcts[15]   = {}
 
+    flares_combined = pd.DataFrame()
     for sat_nr,gd in goes_dcts.items():
         gd['data']      = goes.read_goes(sTime,eTime,sat_nr=sat_nr)
-        gd['flares']    = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
+        flares          = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
+        flares['sat']   = sat_nr
+        gd['flares']    = flares
+        flares_combined = flares_combined.append(flares).sort_index()
         gd['var_tags']  = ['B_AVG']
         gd['labels']    = ['GOES {!s}'.format(sat_nr)]
+
+    flares_combined     = flares_combined[~flares_combined.index.duplicated()].sort_index()
+    csv_path            = os.path.join(output_dir,'{!s}-flares'.format(date_str))  
+    with open(csv_path+'.txt','w') as fl:
+        fl.write(flares_combined.to_string())
+    flares_combined.to_csv(csv_path+'.csv')
 
     ax              = plt.subplot2grid((ny,nx),(env_rspan,c1_pos),colspan=c1_span,rowspan=env_rspan)
     xdct            = gl.prmd[xkey]
@@ -395,24 +477,132 @@ def make_figure(sTime,eTime,xkey='occurred',
                 var_tags=gd['var_tags'],labels=gd['labels'],
                 legendLoc='upper right',lw=goes_lw)
 
-#        flares  = gd['flares']
-#        with open(os.path.join(output_dir,'{!s}-flares.txt'.format(date_str)),'w') as fl:
-#            fl.write(flares.to_string())
-#
-#        for key,flare in flares.iterrows():
-#            label   = '{0} Class Flare @ {1}'.format(flare['class'],key.strftime('%H%M UT'))
-##            ut_hr   = goes.ut_hours(key)
-#            ax.plot(key,flare['B_AVG'],'o',label=label,color='blue',markersize=20)
-    ########################################
+        if find_flares:
+            flares  = gd['flares']
+#            with open(os.path.join(output_dir,'{!s}-G{!s}-flares.txt'.format(date_str,sat_nr)),'w') as fl:
+#                fl.write(flares.to_string())
+
+            for key,flare in flares.iterrows():
+                flr_plt_dct = {}
+#                flr_plt_dct['label']        = '{0} Class Flare @ {1}'.format(flare['class'],key.strftime('%H%M UT'))
+                flr_plt_dct['color']        = gd.get('color','blue')
+                flr_plt_dct['marker']       = gd.get('marker','o')
+                flr_plt_dct['markersize']   = gd.get('markersize',10)
+                ax.plot(key,flare['B_AVG'],**flr_plt_dct)
+                label   = '{!s} ({!s})'.format(key.strftime('%H%M UT'),flare['class'])
+                mark_times.append({'val':key,'label':label})
 
     title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
     size    = lout.get('label_size',20)
     ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':size,'weight':'bold'})
     axs_to_adjust.append(ax)
+    ts_axs.append({'ax':ax,'axvline_props':{'color':'k'}})
 
+    # Summary Plot #########################
+    if plot_summary:
+        fig_row = n_env*env_rspan
+        tfs     = []
+        bstrs   = []
+        for band_inx, (band_key,band) in enumerate(band_dict.items()):
+            tf = df["band"] == band.get('meters')
+            tfs.append(tf)
+
+            bstr    = '{!s}'.format(band['freq'])
+            if band_inx == len(band_dict)-1:
+                bstr = '& ' + bstr
+
+            bstrs.append(bstr)
+
+        if len(bstrs) == 2:
+            bstring = ' '.join(bstrs)
+        else:
+            bstring = ', '.join(bstrs)
+        bstring = bstring + ' MHz'
+
+        frame = df[np.logical_or.reduce(tfs)].copy()
+        frame.sort_values(xkey,inplace=True)
+
+        n_mids  = len(frame)
+        print('   {!s}: Summary: {!s} (n={!s})'.format(date_str,bstring,n_mids))
+
+        # Histograms ########################### 
+        ax      = plt.subplot2grid((ny,nx),(fig_row,c1_pos),
+                    colspan=c1_span,rowspan=band_rspan)
+        axs_to_adjust.append(ax)
+        ts_axs.append({'ax':ax,'axvline_props':{'color':'w'}})
+        title   = '{!s} ({!s})'.format(date_str,bstring)
+
+        vmin    = None
+        vmax    = None
+
+        pad     = lout.get('hist_cbar_pad',0.05)
+        hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
+                    vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=False,log_hist=log_hist,
+                    cbar_pad=pad,xb_size_min=xb_size_min,yb_size_km=yb_size_km,stat=stat,plot_type='line')
+
+        fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
+        freq_xpos   = lout.get('freq_xpos',-0.075)
+        ax.text(freq_xpos,0.5,'All Bands',transform=ax.transAxes,va='center',rotation=90,fontdict=fdict)
+
+        # Solar Zenith Angle
+        if sza is not None:
+            sza_ax  = ax.twinx()
+            sza_ax.plot(sza.index,sza.els,ls='--',lw=lout.get('sza_lw',2),color='white')
+            ylabel  = u'Solar Zenith \u2220\n@ ({:.0f}\N{DEGREE SIGN} N, {:.0f}\N{DEGREE SIGN} E)'.format(sza_lat,sza_lon)
+
+            fontdict    = {}
+            fsize       = lout.get('sza_label_size')
+            if fsize is not None:
+                fontdict['size'] = fsize
+            sza_ax.set_ylabel(ylabel,fontdict=fontdict)
+            sza_ax.set_ylim(110,0)
+
+        #    # Map ################################## 
+        ax = plt.subplot2grid((ny,nx),(fig_row,0),projection=ccrs.PlateCarree(),
+                rowspan=band_rspan,colspan=c0_span)
+        ax.coastlines()
+        ax.gridlines()
+
+        if map_midpoints:
+            plot_on_map(ax,frame,param='mids',cparam=map_midpoints_cparam,lout=lout)
+
+        if map_tx:
+            plot_on_map(ax,frame,param='tx',cparam=map_tx_cparam,lout=lout)
+
+        if map_rx:
+            plot_on_map(ax,frame,param='rx',cparam=map_rx_cparam,lout=lout)
+
+        if map_filter_region:
+            plot_on_map(ax,frame,param='box_out',box=filter_region,lout=lout)
+            plot_on_map(ax,frame,param='box_in',box=filter_region,lout=lout)
+
+        if box is not None:
+            rgn = gl.regions.get(box)
+            x0  = rgn['lon_lim'][0]
+            y0  = rgn['lat_lim'][0]
+            ww  = rgn['lon_lim'][1] - x0
+            hh  = rgn['lat_lim'][1] - y0
+            
+            p   = matplotlib.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=500)
+            ax.add_patch(p)
+
+        if sza is not None:
+            sun_size    = lout.get('sza_sun_size',600)
+            ax.scatter([sza_lon],[sza_lat],marker='*',s=sun_size,color='yellow',
+                            edgecolors='black',zorder=500,lw=3)
+
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
+        label   = 'Radio Spots (N = {!s})'.format(n_mids)
+        fdict   = {'size':lout.get('label_size',24)}
+        ax.text(0.5,-0.15,label,transform=ax.transAxes,ha='center',fontdict=fdict)
+
+    ########################################
     hist_maxes  = {}
     for band_inx, (band_key,band) in enumerate(band_dict.items()):
         fig_row = n_env*env_rspan + band_inx*band_rspan
+        if plot_summary:
+            fig_row += band_rspan
         if band_inx == len(band_dict)-1:
             xlabels = True
         else:
@@ -427,6 +617,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         # Histograms ########################### 
         ax      = plt.subplot2grid((ny,nx),(fig_row,c1_pos),
                     colspan=c1_span,rowspan=band_rspan)
+        ts_axs.append({'ax':ax,'axvline_props':{'color':'w'}})
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
         vmin    = band.get('vmin')
@@ -435,7 +626,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         pad     = lout.get('hist_cbar_pad',0.05)
         hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=xlabels,log_hist=log_hist,
-                    cbar_pad=pad,xb_size_min=xb_size_min,yb_size_km=yb_size_km)
+                    cbar_pad=pad,xb_size_min=xb_size_min,yb_size_km=yb_size_km,stat=stat,plot_type=plot_type)
 
         fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
         freq_xpos   = lout.get('freq_xpos',-0.075)
@@ -505,6 +696,23 @@ def make_figure(sTime,eTime,xkey='occurred',
         return hist_maxes
 
     fig.tight_layout()
+
+    # Mark flare times with a vertical line on each axis.
+    for axd in ts_axs:
+        ax      = axd.get('ax')
+        prp     = axd.get('axvline_props',{})
+        color   = prp.get('color','k')
+        lw      = prp.get('lw',2)
+        ls      = prp.get('ls','--')
+        for mtd in mark_times:
+            mark_time   = mtd.get('val')
+            label       = mtd.get('label')
+
+            ax.axvline(mark_time,color=color,lw=lw,ls=ls)
+            if flare_labels:
+                trans   = matplotlib.transforms.blended_transform_factory(ax.transData, ax.transAxes)
+                fsize   = lout.get('flarelabel_size',22)
+                ax.text(mark_time,1,label,rotation=90,va='top',ha='right',transform=trans,fontdict={'weight':'bold','size':fsize},color=color)
 
     # Force geospace environment axes to line up with histogram
     # axes even though it doesn't have a color bar.
@@ -576,101 +784,391 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
-    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'Europe'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['solar_zenith_region']  =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['band_obj']             = gl.BandData([7,14,21,28])
-    dct['layout']               = '4band12hr'
-    dct['output_dir']           = output_dir
-    dct['fname']                = 'flareEU'
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
-    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
-    dct['rgc_lim']              = (0,3000)
-    dct['maplim_region']        = 'US'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['solar_zenith_region']  =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['band_obj']             = gl.BandData([7,14,21,28])
-    dct['layout']               = '4band12hr'
-    dct['output_dir']           = output_dir
-    dct['fname']                = 'flareUS'
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,5000)
-    dct['maplim_region']        = 'Greater Greater Carribean'
-    dct['box']                  = 'Greater Carribean'
-    dct['solar_zenith_region']  = dct['box']
-    dct['filter_region']        = dct['box']
-    dct['filter_region_kind']   = 'endpoints'
-    dct['log_hist']             = True
-    dct['band_obj']             = gl.BandData([7,14])
-    dct['map_midpoints']        = False
-    dct['map_filter_region']    = True
-    dct['layout']               = '2band'
-    dct['output_dir']           = output_dir
-    dct['fname']                = 'carribean'
-    run_dcts.append(dct)
-
-#    dct = dct.copy()
-#    del dct['band_obj']
-#    del dct['layout']
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+##    dct['eTime']                = datetime.datetime(2017, 9, 2)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'World'
+#    dct['box']                  = 'US'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+##    dct['stat']                 = 'mean'
+##    dct['xb_size_min']          = 60*6
+##    dct['yb_size_km']           = 500
+#    dct['plot_type']             = '2d_hist'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+##    dct['eTime']                = datetime.datetime(2017, 9, 2)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'World'
+#    dct['box']                  = 'US'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+#    dct['stat']                 = 'mean'
+##    dct['xb_size_min']          = 60*6
+##    dct['yb_size_km']           = 500
+#    dct['plot_type']             = '2d_hist'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+##    dct['eTime']                = datetime.datetime(2017, 9, 2)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'Greater Greater Caribbean'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+##    dct['stat']                 = 'mean'
+##    dct['xb_size_min']          = 60*6
+##    dct['yb_size_km']           = 500
+#    dct['plot_type']             = '2d_hist'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+##    dct['eTime']                = datetime.datetime(2017, 9, 2)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'Greater Greater Caribbean'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+#    dct['stat']                 = 'mean'
+##    dct['xb_size_min']          = 60*6
+##    dct['yb_size_km']           = 500
+#    dct['plot_type']             = '2d_hist'
 #    run_dcts.append(dct)
 
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9,  7)
-    dct['eTime']                = datetime.datetime(2017, 9, 10)
-    dct['rgc_lim']              = (0,10000)
-    dct['maplim_region']        = 'World'
-    dct['filter_region']        =  dct['maplim_region']
-    dct['filter_region_kind']   = 'mids'
-    dct['layout']               = '6band3day'
-    dct['log_hist']             = True
-    dct['output_dir']           = output_dir
-    dct['fname']                = 'geomag'
-    run_dcts.append(dct)
-
-    dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 4)
-    dct['eTime']                = datetime.datetime(2017, 9, 14)
-    dct['rgc_lim']              = (0,20000)
-    dct['maplim_region']        = 'World'
-    dct['log_hist']             = True
-    dct['output_dir']           = output_dir
-    dct['fname']                = 'summary'
-    run_dcts.append(dct)
-
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'World'
+##    dct['box']                  = 'Greater Caribbean'
+##    dct['solar_zenith_region']  = dct['box']
+##    dct['filter_region']        = dct['box']
+##    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([21,28])
+##    dct['map_midpoints']        = False
+##    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'US'
+#    dct['box']                  = dct['filter_region']
+##    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['layout']               = '6band3day'
+#    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'Europe'
+#    dct['box']                  = dct['filter_region']
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['layout']               = '6band3day'
+#    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  7)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'US'
+#    dct['box']                  = dct['filter_region']
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['layout']               = '6band3day'
+##    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  7)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,3000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'Europe'
+#    dct['box']                  = dct['filter_region']
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['layout']               = '6band3day'
+##    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  7)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,10000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        = 'US'
+#    dct['box']                  = dct['filter_region']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['layout']               = '6band3day'
+#    dct['log_hist']             = True
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['output_dir']           = output_dir
+#    run_dcts.append(dct)
+#
 #    dct = {}
 #    dct['sTime']                = datetime.datetime(2017, 9,  7)
 #    dct['eTime']                = datetime.datetime(2017, 9, 10)
 #    dct['rgc_lim']              = (0,10000)
 #    dct['maplim_region']        = 'World'
 #    dct['filter_region']        = 'Europe'
-#    dct['solar_zenith_region']  = dct['filter_region']
 #    dct['box']                  = dct['filter_region']
 #    dct['filter_region_kind']   = 'endpoints'
+#    dct['layout']               = '6band3day'
 #    dct['map_midpoints']        = False
 #    dct['map_filter_region']    = True
 #    dct['log_hist']             = True
 #    dct['output_dir']           = output_dir
-#    dct['layout']               = '6band3day'
 #    run_dcts.append(dct)
 #
-#    dct = dct.copy()
-#    dct['filter_region']        = 'US'
-#    dct['solar_zenith_region']  = dct['filter_region']
-#    dct['box']                  = dct['filter_region']
+##    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9, 4)
+##    dct['eTime']                = datetime.datetime(2017, 9, 30)
+##    dct['rgc_lim']              = (0,5000)
+##    dct['maplim_region']        = 'World'
+##    dct['output_dir']           = output_dir
+##    dct['band_obj']             = gl.BandData([7,14])
+##    dct['layout']               = '2band'
+##    dct['fname']                = 'global5000'
+##    run_dcts.append(dct)
+#
+##    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+##    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
+##    dct['rgc_lim']              = (0,3000)
+##    dct['maplim_region']        = 'Europe'
+##    dct['filter_region']        =  dct['maplim_region']
+##    dct['solar_zenith_region']  =  dct['maplim_region']
+##    dct['filter_region_kind']   = 'mids'
+##    dct['band_obj']             = gl.BandData([7,14,21,28])
+##    dct['layout']               = '4band12hr'
+##    dct['output_dir']           = output_dir
+##    dct['fname']                = 'flareEU'
+##    run_dcts.append(dct)
+##
+##    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
+##    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
+##    dct['rgc_lim']              = (0,3000)
+##    dct['maplim_region']        = 'US'
+##    dct['filter_region']        =  dct['maplim_region']
+##    dct['solar_zenith_region']  =  dct['maplim_region']
+##    dct['filter_region_kind']   = 'mids'
+##    dct['band_obj']             = gl.BandData([7,14,21,28])
+##    dct['layout']               = '4band12hr'
+##    dct['output_dir']           = output_dir
+##    dct['fname']                = 'flareUS'
+##    run_dcts.append(dct)
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'Greater Greater Caribbean'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = 'caribbean'
+#    dct['find_flares']          = True
+#    dct['flare_labels']         = False
 #    run_dcts.append(dct)
+
+#    dct = dct.copy()
+#    del dct['band_obj']
+#    del dct['layout']
+#    dct['fname']                = 'caribbean-6band'
+#    run_dcts.append(dct)
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 1)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'Greater Greater Caribbean'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+##    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+##    dct['fname']                = 'caribbean'
+##    dct['plot_type']            = 'line'
+#    dct['plot_summary']         = True
+#    run_dcts.append(dct)
+
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 1)
+    dct['eTime']                = datetime.datetime(2017, 9, 30)
+    dct['rgc_lim']              = (0,5000)
+    dct['maplim_region']        = 'World'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'midpoints'
+#    dct['log_hist']             = True
+    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+    dct['layout']               = '2band'
+    dct['output_dir']           = output_dir
+#    dct['fname']                = 'caribbean'
+#    dct['plot_type']            = 'line'
+    dct['plot_summary']         = True
+    run_dcts.append(dct)
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'Greater Greater Caribbean'
+#    dct['box']                  = 'Greater Caribbean'
+#    dct['solar_zenith_region']  = dct['box']
+#    dct['filter_region']        = dct['box']
+#    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['map_midpoints']        = False
+#    dct['map_filter_region']    = True
+#    dct['layout']               = '2band'
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = 'caribbean'
+#    dct['find_flares']          = True
+#    dct['flare_labels']         = False
+#    run_dcts.append(dct)
+#
+#    dates   = list(daterange(datetime.datetime(2017, 9, 4),datetime.datetime(2017, 9, 14)))
+#    for date in dates:
+#        dct = {}
+#        dct['sTime']                = date
+#        dct['eTime']                = date + datetime.timedelta(days=1)
+#        dct['rgc_lim']              = (0,5000)
+#        dct['maplim_region']        = 'Greater Greater Caribbean'
+#        dct['box']                  = 'Greater Caribbean'
+#        dct['solar_zenith_region']  = dct['box']
+#        dct['filter_region']        = dct['box']
+#        dct['filter_region_kind']   = 'endpoints'
+#        dct['log_hist']             = True
+#        dct['band_obj']             = gl.BandData([7,14])
+#        dct['map_midpoints']        = False
+#        dct['map_filter_region']    = True
+#        dct['layout']               = '2band'
+#        dct['find_flares']          = True
+#        dct['output_dir']           = output_dir
+#        run_dcts.append(dct)
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9,  7)
+#    dct['eTime']                = datetime.datetime(2017, 9, 10)
+#    dct['rgc_lim']              = (0,10000)
+#    dct['maplim_region']        = 'World'
+#    dct['filter_region']        =  dct['maplim_region']
+#    dct['filter_region_kind']   = 'mids'
+#    dct['layout']               = '6band3day'
+#    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = 'geomag'
+#    run_dcts.append(dct)
+#
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 14)
+#    dct['rgc_lim']              = (0,20000)
+#    dct['maplim_region']        = 'World'
+#    dct['log_hist']             = True
+#    dct['output_dir']           = output_dir
+#    dct['fname']                = 'summary'
+#    run_dcts.append(dct)
+#
+##    dct = {}
+##    dct['sTime']                = datetime.datetime(2017, 9,  7)
+##    dct['eTime']                = datetime.datetime(2017, 9, 10)
+##    dct['rgc_lim']              = (0,10000)
+##    dct['maplim_region']        = 'World'
+##    dct['filter_region']        = 'Europe'
+##    dct['solar_zenith_region']  = dct['filter_region']
+##    dct['box']                  = dct['filter_region']
+##    dct['filter_region_kind']   = 'endpoints'
+##    dct['map_midpoints']        = False
+##    dct['map_filter_region']    = True
+##    dct['log_hist']             = True
+##    dct['output_dir']           = output_dir
+##    dct['layout']               = '6band3day'
+##    run_dcts.append(dct)
+##
+##    dct = dct.copy()
+##    dct['filter_region']        = 'US'
+##    dct['solar_zenith_region']  = dct['filter_region']
+##    dct['box']                  = dct['filter_region']
+##    run_dcts.append(dct)
 
 
     if test_configuration:
