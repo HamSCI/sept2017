@@ -117,6 +117,8 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 #    xb_size_min = 30.
 #    yb_size_km  = 500.
 
+    ret_dct = {}
+
     xbin_0  = xlim[0].hour + xlim[0].minute/60. + xlim[0].second/3600.
     xbin_1  = xbin_0 + (xlim[1]-xlim[0]).total_seconds()/3600.
     xbins   = gl.get_bins((xbin_0,xbin_1), xb_size_min/60)
@@ -145,7 +147,8 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
             hist_1      = hist*0.
             hist_1[tf]  = tmp
             hist        = hist_1
-            vm_scale    = 0.8
+#            vm_scale    = 0.8
+            vm_scale    = 0.95
             cbar_label  = 'log10(Ham Radio\nSpot Density)'
 
         if vmin is None: vmin    = 0
@@ -187,8 +190,9 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 #        tf          = np.isnan(hist)
 #        hist[tf]    = vmin
 
+    ret_dct['hist'] = hist
     if calc_hist_maxes:
-        return hist
+        return ret_dct
 
     if xlabels:
         xdct    = gl.prmd[xkey]
@@ -239,10 +243,15 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     elif plot_type == 'line':
         yy  = np.sum(hist,axis=1)
         ax.plot(xb_dt[:-1],yy)
+
+        df_line = pd.DataFrame({'spots':yy},index=xb_dt[:-1])
+        ret_dct['df_line'] = df_line
         ylim = None
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+
+    return ret_dct
 
 def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
     if param == 'mids':
@@ -364,7 +373,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         map_filter_region=False,
         solar_zenith_region=None,
         find_flares=False,flare_labels=True,
-        plot_summary=False,
+        plot_summary=False,line_csvName=None,
         layout=None):
     """
     xkey:   {'slt_mid','ut_hrs'}
@@ -536,9 +545,20 @@ def make_figure(sTime,eTime,xkey='occurred',
         vmax    = None
 
         pad     = lout.get('hist_cbar_pad',0.05)
-        hist    = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
+        hist_dct = make_histogram_from_dataframe(frame, ax, title,xkey=xkey,xlim=(sTime,eTime),ylim=rgc_lim,
                     vmin=vmin,vmax=vmax,calc_hist_maxes=calc_hist_maxes,xlabels=False,log_hist=log_hist,
                     cbar_pad=pad,xb_size_min=xb_size_min,yb_size_km=yb_size_km,stat=stat,plot_type='line')
+
+        hist    = hist_dct.get('hist')
+        df_line = hist_dct.get('df_line')
+        if df_line is not None:
+            if line_csvName is None:
+                line_csvName = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}-DFLINE-{!s}.csv'.format(
+                        date_str,xkey, rgc_lim, maplim_region, filter_region, filter_region_kind,
+                        datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')
+                        )
+            csv_fpath   = os.path.join(output_dir,line_csvName)
+            df_line.to_csv(csv_fpath)
 
         fdict       = {'size':lout.get('freq_size',35),'weight':'bold'}
         freq_xpos   = lout.get('freq_xpos',-0.075)
@@ -979,18 +999,19 @@ if __name__ == "__main__":
 #    dct['log_hist']             = True
 #    dct['output_dir']           = output_dir
 #    run_dcts.append(dct)
-#
-##    dct = {}
-##    dct['sTime']                = datetime.datetime(2017, 9, 4)
-##    dct['eTime']                = datetime.datetime(2017, 9, 30)
-##    dct['rgc_lim']              = (0,5000)
-##    dct['maplim_region']        = 'World'
-##    dct['output_dir']           = output_dir
-##    dct['band_obj']             = gl.BandData([7,14])
-##    dct['layout']               = '2band'
-##    dct['fname']                = 'global5000'
-##    run_dcts.append(dct)
-#
+
+#    dct = {}
+#    dct['sTime']                = datetime.datetime(2017, 9, 4)
+#    dct['eTime']                = datetime.datetime(2017, 9, 30)
+#    dct['rgc_lim']              = (0,5000)
+#    dct['maplim_region']        = 'World'
+#    dct['output_dir']           = output_dir
+#    dct['band_obj']             = gl.BandData([7,14])
+#    dct['layout']               = '2band'
+#    dct['fname']                = 'global5000'
+#    dct['log_hist']             = True
+#    run_dcts.append(dct)
+
 ##    dct = {}
 ##    dct['sTime']                = datetime.datetime(2017, 9, 6,6)
 ##    dct['eTime']                = datetime.datetime(2017, 9, 6,18)
@@ -1045,25 +1066,25 @@ if __name__ == "__main__":
 #    dct['fname']                = 'caribbean-6band'
 #    run_dcts.append(dct)
 
-#    dct = {}
-#    dct['sTime']                = datetime.datetime(2017, 9, 1)
-#    dct['eTime']                = datetime.datetime(2017, 9, 30)
-#    dct['rgc_lim']              = (0,5000)
-#    dct['maplim_region']        = 'Greater Greater Caribbean'
-#    dct['box']                  = 'Greater Caribbean'
-#    dct['solar_zenith_region']  = dct['box']
-#    dct['filter_region']        = dct['box']
-#    dct['filter_region_kind']   = 'endpoints'
-##    dct['log_hist']             = True
-#    dct['band_obj']             = gl.BandData([7,14])
-#    dct['map_midpoints']        = False
-#    dct['map_filter_region']    = True
-#    dct['layout']               = '2band'
-#    dct['output_dir']           = output_dir
-##    dct['fname']                = 'caribbean'
-##    dct['plot_type']            = 'line'
-#    dct['plot_summary']         = True
-#    run_dcts.append(dct)
+    dct = {}
+    dct['sTime']                = datetime.datetime(2017, 9, 1)
+    dct['eTime']                = datetime.datetime(2017, 9, 30)
+    dct['rgc_lim']              = (0,5000)
+    dct['maplim_region']        = 'Greater Greater Caribbean'
+    dct['box']                  = 'Greater Caribbean'
+    dct['solar_zenith_region']  = dct['box']
+    dct['filter_region']        = dct['box']
+    dct['filter_region_kind']   = 'endpoints'
+#    dct['log_hist']             = True
+    dct['band_obj']             = gl.BandData([7,14])
+    dct['map_midpoints']        = False
+    dct['map_filter_region']    = True
+    dct['layout']               = '2band'
+    dct['output_dir']           = output_dir
+#    dct['fname']                = 'caribbean'
+#    dct['plot_type']            = 'line'
+    dct['plot_summary']         = True
+    run_dcts.append(dct)
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 1)
@@ -1081,7 +1102,7 @@ if __name__ == "__main__":
     dct['layout']               = '2band'
     dct['output_dir']           = output_dir
 #    dct['fname']                = 'caribbean'
-#    dct['plot_type']            = 'line'
+    dct['plot_type']            = 'line'
     dct['plot_summary']         = True
     run_dcts.append(dct)
 

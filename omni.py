@@ -56,7 +56,7 @@ class Omni():
 
         # Kp ###################################
         ax_1        = ax.twinx()
-#        ax.set_zorder(ax_1.get_zorder()+1)
+        ax.set_zorder(ax_1.get_zorder()+1)
         ax.patch.set_visible(False)
         low_color   = 'green'
         mid_color   = 'darkorange'
