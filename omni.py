@@ -10,6 +10,7 @@ def to_ut_hr(dt):
 
 class Omni():
     def __init__(self):
+        # Load OMNI ############################
         omni_csv        = 'data/omni/omni2_3051.csv'
         omni_df         = pd.read_csv(omni_csv,
                             parse_dates={'datetime':['year','doy','hr']},
@@ -19,6 +20,13 @@ class Omni():
         del omni_df['Kp_x10']
         self.df     = omni_df
 
+        # Load Kyoto SYM-H #####################
+        fpath           ='data/kyoto_wdc/WWW_aeasy00025746.dat.txt'
+        df_symasy       = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
+        df_symasy       = df_symasy.set_index('DATE_TIME')
+        df_symasy       = df_symasy[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
+        self.df_symasy  = df_symasy
+
     def _date_parser(self,years,doys,hrs):
         datetimes = []
         for year,doy,hr in zip(years,doys,hrs):
@@ -27,9 +35,11 @@ class Omni():
         return datetimes
 
     def plot_dst_kp(self,sTime,eTime,ax,xkey='index',xlabels=True,
-            dst_lw=1,kp_markersize=10):
+            dst_param='Dst_nT',dst_lw=1,kp_markersize=10):
         """
         DST and Kp
+
+        dst_param = ['Dst_nT','SYM-H']
         """
         tf  = np.logical_and(self.df.index >= sTime, self.df.index < eTime)
         df  = self.df[tf].copy()
@@ -38,20 +48,28 @@ class Omni():
 
         lines       =[]
 
-        if xkey == 'index':
-            xx      = df.index
-            xlim    = (sTime,eTime)
-        else:
-            xx      = ut_hrs
-            xlim    = (to_ut_hr(sTime), (eTime-sTime).total_seconds()/3600.)
-        yy = df['Dst_nT'].tolist()
+        if dst_param == 'Dst_nT':
+            if xkey == 'index':
+                xx      = df.index
+                xlim    = (sTime,eTime)
+            else:
+                xx      = ut_hrs
+                xlim    = (to_ut_hr(sTime), (eTime-sTime).total_seconds()/3600.)
 
-        tmp,        = ax.plot(xx,yy,label='Dst [nT]',color='k',lw=dst_lw)
+            yy      = df['Dst_nT'].tolist()
+            ylabel  = 'Dst [nT]'
+        else:
+            xx      = self.df_symasy.index
+            yy      = self.df_symasy[dst_param].tolist()
+            xlim    = (sTime,eTime)
+            ylabel  = 'SYM-H [nT]'
+
+        tmp,        = ax.plot(xx,yy,label=ylabel,color='k',lw=dst_lw)
 #        ax.fill_between(xx,0,yy,color='0.75')
         lines.append(tmp)
-        ax.set_ylabel('Dst [nT]')
+        ax.set_ylabel(ylabel)
         ax.axhline(0,color='k',ls='--')
-        ax.set_ylim(-200,50)
+        ax.set_ylim(-200,100)
         ax.set_xlim(xlim)
 
         # Kp ###################################

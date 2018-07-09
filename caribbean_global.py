@@ -16,6 +16,7 @@ import gen_lib as gl
 
 import goes
 from omni import Omni
+import tec_lib
 
 pdct    = OrderedDict()
 
@@ -39,6 +40,12 @@ tmp['label_size']       = 14
 tmp['legend_size']      = 12
 tmp['kp_markersize']    = 5
 lout    = tmp
+
+def time_range(sTime,eTime,step=datetime.timedelta(hours=24)):
+    times   = [sTime]
+    while times[-1] < eTime:
+        times.append(times[-1]+step)
+    return times
 
 def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
         label_size='xx-large',legend_size='large',text_weight='bold',**kwargs):
@@ -73,7 +80,12 @@ class StackPlot(object):
         self.kpDst()
         self.goes()
         self.hamRadio()
+#        self.tec(region='Greater Caribbean')
+#        self.tec(region='US')
 
+        ax  = self.fig.gca()
+
+        ax.set_xlabel('Date Time [UT]')
         self.fig.tight_layout()
         fname   = 'caribbean_global.png'
         fpath   = os.path.join(output_dir,fname)
@@ -97,7 +109,7 @@ class StackPlot(object):
         msize           = lout.get('kp_markersize',10)
         dst_lw          = lout.get('goes_lw',2)
         omni_axs        = omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
-                            kp_markersize=msize,dst_lw=dst_lw)
+                            kp_markersize=msize,dst_lw=dst_lw,dst_param='SYM-H')
 
     def goes(self):
         ax  = self.next_ax()
@@ -157,15 +169,68 @@ class StackPlot(object):
             goes_lw         = lout.get('goes_lw',2)
             ax.plot(xx,yy,label=None,lw=goes_lw)
 
-            ax.axhline(yy.mean(),ls='--',label='mean')
+            ax.axhline(np.nanmean(yy),ls='--',label='mean')
             ax.set_title(dct.get('title',key))
 
             ax.set_ylabel('Daily Spot\nAverage')
             ax.set_xlim(self.sTime,self.eTime)
             ax.grid()
 
-            if inx == len(pdct)-1:
-                ax.set_xlabel('Date Time [UT]')
+    def tec(self,region='Greater Caribbean',param='tec',data_dir='data/tec',download=False):
+        sTime   = self.sTime
+        eTime   = self.eTime
+        if download:
+            tec_lib.download_tec(self.sTime,self.eTime,data_dir=data_dir)
+
+#        t0_str  = self.sTime.strftime('%Y%m%d.%H%M')
+#        t1_str  = self.eTime.strftime('%Y%m%d.%H%M')
+#        csvname = '{!s}-{!s}.cache.csv.bz2'.format(t0_str,t1_str)
+#        csvpath = os.path.join(data_dir,csvname)
+#        if not os.path.exists(csvpath):
+#            print('Creating {!s}'.format(csvpath))
+#            df  = tec_lib.load_tec(self.sTime,self.eTime,data_dir)
+#            df.to_csv(csvpath,index=False,compression='bz2')
+#        else:
+#            print('Loading {!s}'.format(csvpath))
+#            df  = pd.read_csv(csvpath,parse_dates=['datetime'])
+
+        df  = tec_lib.load_tec(self.sTime,self.eTime,data_dir,region=region)
+
+        step    = datetime.timedelta(hours=24)
+        win     = step
+        dates   = time_range(self.sTime, self.eTime,step)
+
+        if win < datetime.timedelta(hours=1):
+            win_label   = '{:.0f} min Bins'.format(win.total_seconds()/60.)
+        elif win < datetime.timedelta(days=1):
+            win_label   = '{:.0f} hr Bins'.format(win.total_seconds()/3600.)
+        else:
+            win_label   = '{:.0f} day Bins'.format(win.total_seconds()/86400.)
+
+        vals    = []
+        for date in dates:
+            tf  = np.logical_and(df['datetime'] >= date,
+                                 df['datetime'] <  date+win)
+            val = df[param][tf].mean()
+            vals.append(val)
+        vals    = np.array(vals)
+
+        ax  = self.next_ax()
+
+#        xx  = df['datetime']
+#        yy  = df['spots']
+
+        xx  = dates
+        yy  = vals
+        goes_lw         = lout.get('goes_lw',2)
+        ax.plot(xx,yy,label=None,lw=goes_lw)
+        ax.axhline(np.nanmean(yy),ls='--',label='mean')
+        title = 'TEC - {!s} ({!s})'.format(region,win_label)
+        ax.set_title(title)
+
+        ax.set_ylabel('Mean TEC')
+        ax.set_xlim(self.sTime,self.eTime)
+        ax.grid()
 
 if __name__ == '__main__':
     StackPlot()

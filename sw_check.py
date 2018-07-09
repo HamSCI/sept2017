@@ -33,7 +33,7 @@ def plot_sw(sTime,eTime,xkey='occurred',output_dir='output',lout={}):
     msize           = lout.get('kp_markersize',10)
     dst_lw          = lout.get('goes_lw',2)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True,
-                        kp_markersize=msize,dst_lw=dst_lw)
+                        kp_markersize=msize,dst_lw=dst_lw,dst_param='SYM-H')
 
 
     ax.grid(axis='x')
@@ -93,28 +93,28 @@ if __name__ == '__main__':
 
     run_dcts = []
     rd = {}
-    rd['sTime']         = datetime.datetime(2017, 9,  7)
-    rd['eTime']         = datetime.datetime(2017, 9, 10)
+    rd['sTime']         = datetime.datetime(2017, 9,  4)
+    rd['eTime']         = datetime.datetime(2017, 9, 14)
     rd['output_dir']    = output_dir
     run_dcts.append(rd)
 
-    rd = {}
-    rd['sTime']         = datetime.datetime(2017, 9,  7,18)
-    rd['eTime']         = datetime.datetime(2017, 9,  9, 6)
-    rd['output_dir']    = output_dir
-    run_dcts.append(rd)
-
-    rd = {}
-    rd['sTime']         = datetime.datetime(2017, 9,  7,18)
-    rd['eTime']         = datetime.datetime(2017, 9,  8, 0)
-    rd['output_dir']    = output_dir
-    run_dcts.append(rd)
-
-    rd = {}
-    rd['sTime']         = datetime.datetime(2017, 9,  8,21)
-    rd['eTime']         = datetime.datetime(2017, 9,  9, 3)
-    rd['output_dir']    = output_dir
-    run_dcts.append(rd)
+#    rd = {}
+#    rd['sTime']         = datetime.datetime(2017, 9,  7,18)
+#    rd['eTime']         = datetime.datetime(2017, 9,  9, 6)
+#    rd['output_dir']    = output_dir
+#    run_dcts.append(rd)
+#
+#    rd = {}
+#    rd['sTime']         = datetime.datetime(2017, 9,  7,18)
+#    rd['eTime']         = datetime.datetime(2017, 9,  8, 0)
+#    rd['output_dir']    = output_dir
+#    run_dcts.append(rd)
+#
+#    rd = {}
+#    rd['sTime']         = datetime.datetime(2017, 9,  8,21)
+#    rd['eTime']         = datetime.datetime(2017, 9,  9, 3)
+#    rd['output_dir']    = output_dir
+#    run_dcts.append(rd)
     
     for rd in run_dcts:
         plot_sw(**rd)

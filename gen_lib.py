@@ -53,6 +53,10 @@ tmp = {}
 tmp['label']            = 'R_gc [km]'
 prmd['dist_Km']         = tmp
 
+tmp = {}
+tmp['label']            = 'TEC'
+prmd['tec']         = tmp
+
 # Region Dictionary
 regions = {}
 tmp     = {}
