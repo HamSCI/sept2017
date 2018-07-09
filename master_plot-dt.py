@@ -364,13 +364,10 @@ def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
         cbar.set_label(clabel,fontdict=fontdict)
 
 def gen_csv(df,output_dir,fname='df_out'):
-
     csv_keys    = OrderedDict()
 #    csv_keys['tx_loc_source']   = 'tx_loc_source'
 #    csv_keys['rx_loc_source']   = 'rx_loc_source'
 #    csv_keys['rpt_key']         = 'rpt_key'
-#    csv_keys['tx']              = 'tx'
-#    csv_keys['rx']              = 'rx'
 #    csv_keys['rpt_mode']        = 'rpt_mode'
 #    csv_keys['band']            = 'band'
 #    csv_keys['tx_grid']         = 'tx_grid'
@@ -381,25 +378,40 @@ def gen_csv(df,output_dir,fname='df_out'):
     csv_keys['source']          = 'source'
     csv_keys['dist_Km']         = 'dist_Km'
     csv_keys['snr']             = 'snr_dB'
+    csv_keys['tx']              = 'tx'
     csv_keys['tx_lat']          = 'tx_lat'
     csv_keys['tx_long']         = 'tx_long'
+    csv_keys['rx']              = 'rx'
     csv_keys['rx_lat']          = 'rx_lat'
     csv_keys['rx_long']         = 'rx_long'
     csv_keys['md_lat']          = 'md_lat'
     csv_keys['md_long']         = 'md_long'
     csv_keys['ut_hrs']          = 'ut_hrs'
     csv_keys['slt_mid']         = 'slt_mid_hrs'
-
     keys    = [x for x in csv_keys.keys()]
 
     df_out  = df[keys].copy()
     df_out  = df_out.rename(columns=csv_keys)
-
     df_out['frequency_MHz']     = df_out['frequency_MHz']/1000.
 
     for src_id,src_dct  in gl.sources.items():
         tf  = df_out['source'] == src_id
         df_out.loc[tf,'source'] = src_dct['name']
+
+    # Associate Call Signs #################
+    call_csv    = 'data/callIds/callsigns.csv.bz2'
+    if os.path.exists(call_csv):
+        call_df     = pd.read_csv(call_csv,compression='bz2')
+        print('Associating call signs...')
+        for rinx,row in tqdm.tqdm(call_df.iterrows(),total=len(call_df)):
+            call_id = row['call_ids']
+            call    = row['call']
+            
+            tf  = df_out['tx'] == call_id
+            df_out.loc[tf,'tx'] = call
+
+            tf  = df_out['rx'] == call_id
+            df_out.loc[tf,'rx'] = call
 
     csv_name    = '{!s}.csv.bz2'.format(fname)
     fpath       = os.path.join(output_dir,csv_name)
@@ -860,8 +872,8 @@ if __name__ == "__main__":
     run_dcts    = []
 
     dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9, 1)
-    dct['eTime']                = datetime.datetime(2017, 9, 30)
+    dct['sTime']                = datetime.datetime(2017, 9,  1)
+    dct['eTime']                = datetime.datetime(2017, 10, 1)
 #    dct['rgc_lim']              = (0,20000)
     dct['maplim_region']        = 'World'
     dct['log_hist']             = True
@@ -869,7 +881,6 @@ if __name__ == "__main__":
     dct['fname']                = 'all_rgc_summary'
     dct['generate_csv']         = True
     run_dcts.append(dct)
-
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 6,6)
@@ -940,7 +951,7 @@ if __name__ == "__main__":
 
     dct = {}
     dct['sTime']                = datetime.datetime(2017, 9, 1)
-    dct['eTime']                = datetime.datetime(2017, 9, 30)
+    dct['eTime']                = datetime.datetime(2017, 10, 1)
     dct['rgc_lim']              = (0,20000)
     dct['maplim_region']        = 'World'
     dct['log_hist']             = True
