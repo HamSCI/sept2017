@@ -363,7 +363,7 @@ def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
         fontdict = {'size':'xx-large','weight':'normal'}
         cbar.set_label(clabel,fontdict=fontdict)
 
-def gen_csv(df,output_dir,fname='df_out'):
+def gen_csv(df,output_dir,fname='df_out',gen_callIds=False):
     csv_keys    = OrderedDict()
 #    csv_keys['tx_loc_source']   = 'tx_loc_source'
 #    csv_keys['rx_loc_source']   = 'rx_loc_source'
@@ -386,7 +386,7 @@ def gen_csv(df,output_dir,fname='df_out'):
     csv_keys['rx_long']         = 'rx_long'
     csv_keys['md_lat']          = 'md_lat'
     csv_keys['md_long']         = 'md_long'
-    csv_keys['ut_hrs']          = 'ut_hrs'
+#    csv_keys['ut_hrs']          = 'ut_hrs'
     csv_keys['slt_mid']         = 'slt_mid_hrs'
     keys    = [x for x in csv_keys.keys()]
 
@@ -401,17 +401,12 @@ def gen_csv(df,output_dir,fname='df_out'):
     # Associate Call Signs #################
     call_csv    = 'data/callIds/callsigns.csv.bz2'
     if os.path.exists(call_csv):
-        call_df     = pd.read_csv(call_csv,compression='bz2')
         print('Associating call signs...')
-        for rinx,row in tqdm.tqdm(call_df.iterrows(),total=len(call_df)):
-            call_id = row['call_ids']
-            call    = row['call']
-            
-            tf  = df_out['tx'] == call_id
-            df_out.loc[tf,'tx'] = call
-
-            tf  = df_out['rx'] == call_id
-            df_out.loc[tf,'rx'] = call
+        call_df     = pd.read_csv(call_csv,compression='bz2').set_index('call_ids')
+        for txrx in ['tx','rx']:
+            df_out          = df_out.join(call_df,on=txrx)
+            df_out[txrx]    = df_out['call']
+            del df_out['call']
 
     csv_name    = '{!s}.csv.bz2'.format(fname)
     fpath       = os.path.join(output_dir,csv_name)
@@ -422,10 +417,10 @@ def gen_csv(df,output_dir,fname='df_out'):
     call_ids.sort_values('call_ids',inplace=True)
     call_ids.drop_duplicates(inplace=True)
     
-    csv_name    = '{!s}_callIds.csv.bz2'.format(fname)
-    fpath       = os.path.join(output_dir,csv_name)
-    call_ids.to_csv(fpath,index=False,compression='bz2')
-    import ipdb; ipdb.set_trace()
+    if gen_callIds:
+        csv_name    = '{!s}_callIds.csv.bz2'.format(fname)
+        fpath       = os.path.join(output_dir,csv_name)
+        call_ids.to_csv(fpath,index=False,compression='bz2')
 
 def make_figure(sTime,eTime,xkey='occurred',
         rgc_lim=(0,40000), maplim_region='World', filter_region=None, filter_region_kind='midpoints',
@@ -464,6 +459,12 @@ def make_figure(sTime,eTime,xkey='occurred',
                         filter_region=filter_region,filter_region_kind=filter_region_kind)
         df          = df.append(dft,ignore_index=True)
 
+        if generate_csv:
+            csv_fname   = '{!s}-RBN_WSPR'.format(dt.strftime("%Y-%m-%d"))
+            gen_csv(dft,output_dir,csv_fname)
+
+    if generate_csv:
+        return
     tf  = np.logical_and(df['occurred'] >= sTime,
                          df['occurred'] <= eTime+datetime.timedelta(minutes=xb_size_min))
     df  = df[tf].copy()
@@ -480,8 +481,6 @@ def make_figure(sTime,eTime,xkey='occurred',
     if solar_zenith_region is not None:
         sza,sza_lat,sza_lon = gl.calc_solar_zenith_region(sTime,eTime,region=solar_zenith_region)
 
-    if generate_csv:
-        gen_csv(df,output_dir,fname)
 
     # Plotting #############################
     print('Plotting...')
@@ -872,13 +871,13 @@ if __name__ == "__main__":
     run_dcts    = []
 
     dct = {}
-    dct['sTime']                = datetime.datetime(2017, 9,  1)
+    dct['sTime']                = datetime.datetime(2017,  9, 1)
     dct['eTime']                = datetime.datetime(2017, 10, 1)
 #    dct['rgc_lim']              = (0,20000)
     dct['maplim_region']        = 'World'
     dct['log_hist']             = True
     dct['output_dir']           = output_dir
-    dct['fname']                = 'all_rgc_summary'
+    dct['fname']                = 'SEPT2017_WSPR_RBN'
     dct['generate_csv']         = True
     run_dcts.append(dct)
 
