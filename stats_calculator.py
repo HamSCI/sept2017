@@ -36,7 +36,11 @@ def histogram_from_df(df,xb_size_min=10.,yb_size_km=250.,xlim=None,ylim=(0,40000
         yb      = ybins
         hist    = np.zeros((len(xb)-1,len(yb)-1))
 
-    return hist
+    coords  = {'sTime':[sTime],'ut_hours':xbins[:-1],'rgc_km':ybins[:-1]}
+    dims    = ('sTime','ut_hours','rgc_km')
+    values  = np.expand_dims(hist,0)
+    hist_xr = xr.DataArray(values,coords,dims)
+    return hist_xr
 
 def gen_csv(df,output_dir,fname='df_out',gen_callIds=False):
     csv_keys    = OrderedDict()
@@ -127,8 +131,7 @@ class SpotDay(object):
         ylim        = self.attr.get('rgc_lim')
         xlim        = (sTime,sTime+datetime.timedelta(hours=24))
 
-        hists       = OrderedDict()
-        self.hists  = hists
+        hists       = []
         for band_inx, (band_key,band) in enumerate(band_dict.items()):
             frame   = df.loc[df["band"] == band.get('meters')].copy()
 
@@ -140,7 +143,10 @@ class SpotDay(object):
             dct['ylim']         = ylim
 
             hist    = histogram_from_df(**dct)
-            hists[band_key] = hist
+            hist    = hist.assign_coords(band=int(band_key))
+            hists.append(hist)
+
+        self.hists  = xr.concat(hists,dim='band')
 
 if __name__ == "__main__":
     sDate       = datetime.datetime(2017,  9, 1)
