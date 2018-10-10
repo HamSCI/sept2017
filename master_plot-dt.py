@@ -363,7 +363,7 @@ def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
         fontdict = {'size':'xx-large','weight':'normal'}
         cbar.set_label(clabel,fontdict=fontdict)
 
-def gen_csv(df,output_dir,fname='df_out',gen_callIds=False):
+def gen_csv(df,output_dir,fname='df_out',gen_callIds=False,associate_callsigns=False):
     csv_keys    = OrderedDict()
 #    csv_keys['tx_loc_source']   = 'tx_loc_source'
 #    csv_keys['rx_loc_source']   = 'rx_loc_source'
@@ -400,7 +400,7 @@ def gen_csv(df,output_dir,fname='df_out',gen_callIds=False):
 
     # Associate Call Signs #################
     call_csv    = 'data/callIds/callsigns.csv.bz2'
-    if os.path.exists(call_csv):
+    if os.path.exists(call_csv) and associate_callsigns:
         print('Associating call signs...')
         call_df     = pd.read_csv(call_csv,compression='bz2').set_index('call_ids')
         for txrx in ['tx','rx']:
@@ -433,7 +433,7 @@ def make_figure(sTime,eTime,xkey='occurred',
         solar_zenith_region=None,
         find_flares=False,flare_labels=True,
         plot_summary=False,line_csvName=None,
-        layout=None,generate_csv=False):
+        layout=None,generate_csv=False,associate_callsigns=False):
     """
     xkey:   {'slt_mid','ut_hrs'}
     """
@@ -461,7 +461,7 @@ def make_figure(sTime,eTime,xkey='occurred',
 
         if generate_csv:
             csv_fname   = '{!s}-RBN_WSPR'.format(dt.strftime("%Y-%m-%d"))
-            gen_csv(dft,output_dir,csv_fname)
+            gen_csv(dft,output_dir,csv_fname,associate_callsigns=associate_callsigns)
 
     if generate_csv:
         return
