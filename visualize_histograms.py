@@ -60,9 +60,10 @@ def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
         ax.coastlines(zorder=10,color='w')
         ax.plot(np.arange(10))
         map_data  = map_da.sel(freq_MHz=freq).copy()
+        tf        = map_data < 1
         map_data  = np.log10(map_data)
-        tf        = np.isneginf(map_data)
         map_data.values[tf] = 0
+        map_data.name   = 'log({})'.format(map_data.name)
         map_data.plot.contourf(x=map_da.attrs['xkey'],y=map_da.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
         
         plt_nr += 1
@@ -72,10 +73,6 @@ def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
             tf          = data < 1.
             data        = np.log10(data)
             data.values[tf] = 0
-
-#            data        = np.log10(data)
-#            tf          = np.isneginf(data)
-#            data.values[tf] = 0
             data.name   = 'log({})'.format(data.name)
 
         data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30)
