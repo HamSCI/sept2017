@@ -60,8 +60,9 @@ class KeyParamStore(object):
                     data_da     = self.data_das[xkey][param]
                     stat_da     = eval("data_da.{!s}(dim='{!s}',keep_attrs=True)".format(stat,dim))
                     stat_da.attrs.update({'stat':stat})
+                    stat_da.name    = pstat(param,stat)
                     stats_ds[pstat(param,stat)] = stat_da
-            stats_dss[xkey] = stat_da
+            stats_dss[xkey] = stats_ds
         self.stats_dss = stats_dss
         return stats_dss
 

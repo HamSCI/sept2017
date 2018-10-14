@@ -15,20 +15,37 @@ import cartopy.crs as ccrs
 import numpy as np
 import pandas as pd
 import xarray as xr
+import netCDF4
 
 import tqdm
 
 import gen_lib as gl
 
-def plot_nc(nc,png_path,param,xkey,xlim=(0,24),ylim=None,log_z=True,**kwargs):
-    ds_map  = xr.open_dataset(nc,group='/map')
-    ds_data = xr.open_dataset(nc,group='/{!s}'.format(xkey))
+pdict   = {}
 
-    da_map  = ds_map['spot_density']
-    da_data = ds_data[param]
+#dct = {}
+#dct['log_z']    = False
+#pdict['mean']   = dct
+#
+#dct = {}
+#dct['log_z']    = False
+#pdict['median'] = dct
+#
+#dct = {}
+#dct['log_z']   = False
+#pdict['std']   = dct
+#
+#dct = {}
+#dct['log_z']   = False
+#pdict['sum']   = dct
 
-    ut_sTime    = dateutil.parser.parse(da_data.attrs['sTime'])
-    freqs       = np.sort(da_data['freq_MHz'])[::-1]
+def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
+
+    stat    = data_da.attrs.get('stat')
+    pdct    = pdict.get(stat,{})
+    log_z   = pdct.get('log_z',True)
+
+    freqs       = np.sort(data_da['freq_MHz'])[::-1]
 
     nx      = 100
     ny      = len(freqs)
@@ -42,23 +59,26 @@ def plot_nc(nc,png_path,param,xkey,xlim=(0,24),ylim=None,log_z=True,**kwargs):
 
         ax.coastlines(zorder=10,color='w')
         ax.plot(np.arange(10))
-#        map_data  = da_map.sel(ut_sTime=ut_sTime,freq_MHz=freq).copy()
-        map_data  = da_map.sel(freq_MHz=freq).copy()
+        map_data  = map_da.sel(freq_MHz=freq).copy()
         map_data  = np.log10(map_data)
         tf        = np.isneginf(map_data)
         map_data.values[tf] = 0
-        map_data.plot.contourf(x=da_map.attrs['xkey'],y=da_map.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
+        map_data.plot.contourf(x=map_da.attrs['xkey'],y=map_da.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
         
         plt_nr += 1
         ax = plt.subplot2grid((ny,nx),(inx,35),colspan=65)
-#        data    = da_data.sel(ut_sTime=ut_sTime,freq_MHz=freq).copy()
-        data    = da_data.sel(freq_MHz=freq).copy()
+        data    = data_da.sel(freq_MHz=freq).copy()
         if log_z:
+            tf          = data < 1.
             data        = np.log10(data)
-            tf          = np.isneginf(data)
             data.values[tf] = 0
 
-        data.plot.contourf(x=da_data.attrs['xkey'],y=da_data.attrs['ykey'],ax=ax,levels=30)
+#            data        = np.log10(data)
+#            tf          = np.isneginf(data)
+#            data.values[tf] = 0
+            data.name   = 'log({})'.format(data.name)
+
+        data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30)
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
@@ -66,20 +86,60 @@ def plot_nc(nc,png_path,param,xkey,xlim=(0,24),ylim=None,log_z=True,**kwargs):
     fig.savefig(png_path,bbox_inches='tight')
     plt.close(fig)
 
-def main(run_dct):
-    src_dir     = run_dct['src_dir']
-    baseout_dir = run_dct['baseout_dir']
-    xkey        = run_dct['xkey']
-    param       = run_dct['param']
+class ncLoader(object):
+    def __init__(self,nc):
+        with netCDF4.Dataset(nc) as nc_fl:
+            groups  = [group for group in nc_fl.groups.keys()]
 
-    output_dir  = os.path.join(baseout_dir,'{!s}_{!s}_{!s}'.format(os.path.basename(src_dir),param,xkey))
-    gl.prep_output({0:output_dir},clear=False)
-    ncs = glob.glob(os.path.join(src_dir,'*.nc'))
+        das = OrderedDict()
+        for group in groups:
+            das[group] = OrderedDict()
+            with xr.open_dataset(nc,group=group) as fl:
+                ds      = fl.load()
+
+            for param in ds.data_vars:
+                das[group][param] = ds[param]
+
+        xkeys   = groups.copy()
+        xkeys.remove('map')
+
+        self.nc     = nc
+        self.das    = das
+        self.xkeys  = xkeys
+
+        self.get_map_da()
+
+    def get_map_da(self):
+        """
+        Get map dataarray. This chooses the first variable in a map dataset.
+        """
+        map_das     = self.das['map']
+        map_params  = [x for x in map_das]
+        map_param   = map_params[0]
+        map_da      = map_das[map_param]
+
+        self.map_da     = map_da
+        self.map_param  = map_param
+
+def main(run_dct):
+    srcs        = run_dct['srcs']
+    baseout_dir = run_dct['baseout_dir']
+
+    ncs = glob.glob(srcs)
     ncs.sort()
 
     for nc in ncs:
-        png_path = os.path.join(output_dir,os.path.basename(nc)[:-3]+'_{!s}_{!s}.png'.format(param,xkey))
-        plot_nc(nc,png_path,**run_dct)
+        ncl     = ncLoader(nc)
+        map_da  = ncl.map_da
+        bname   = os.path.basename(nc)[:-3]
+        for xkey in ncl.xkeys:
+            outdir  = os.path.join(baseout_dir,xkey)
+            gl.prep_output({0:outdir})
+            for param,data_da in ncl.das[xkey].items():
+                fname   = '.'.join([bname,xkey,param,'png'])
+                fpath   = os.path.join(outdir,fname)
+                print(fpath)
+                plot_nc(data_da,map_da,png_path=fpath,**run_dct)
 
 if __name__ == '__main__':
     baseout_dir = 'output/galleries/histograms'
@@ -87,17 +147,9 @@ if __name__ == '__main__':
     run_dcts = []
 
     rd = {}
-    rd['src_dir']       = 'data/histograms/0-10000km_dx30min_dy500km'
-    rd['baseout_dir']   = baseout_dir
-    rd['xkey']          = 'ut_hrs'
-    rd['param']         = 'spot_density'
-    run_dcts.append(rd)
-
-    rd = {}
-    rd['src_dir']       = 'data/histograms/0-10000km_dx30min_dy500km'
-    rd['baseout_dir']   = baseout_dir
-    rd['xkey']          = 'slt_mid'
-    rd['param']         = 'spot_density'
+    this_dir            = 'sept2017'
+    rd['srcs']          = 'data/histograms/{!s}/*.nc'.format('sept2017')
+    rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
     run_dcts.append(rd)
 
     for rd in run_dcts:
