@@ -14,6 +14,9 @@ import pandas as pd
 import geopack
 import calcSun
 
+import pickle
+import bz2
+
 de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
 dxf_prop        = {'marker':'*','color':'blue'}
 dxf_leg_size    = 150
@@ -445,8 +448,12 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
         E: Estimated using prefix
     """
 
-    CSV_FILE_PATH   = "data/spot_csvs/{}.csv.bz2"
-    df              = pd.read_csv(CSV_FILE_PATH.format(date_str),parse_dates=['occurred'])
+    hdf_path = "data/spot_csvs/{}.hdf".format(date_str)
+    csv_path = "data/spot_csvs/{}.csv.bz2".format(date_str)
+    if os.path.exists(hdf_path):
+        df  = pd.read_hdf(hdf_path)
+    else:
+        df  = pd.read_csv(csv_path,parse_dates=['occurred'])
 
     # Select spotting networks
     if data_sources is not None:
