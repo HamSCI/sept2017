@@ -39,6 +39,14 @@ pdict   = {}
 #dct['log_z']   = False
 #pdict['sum']   = dct
 
+dct = {}
+dct['log_z']        = False
+pdict['z_score']    = dct
+
+dct = {}
+dct['log_z']        = False
+pdict['pct_err']    = dct
+
 def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
 
     stat    = data_da.attrs.get('stat')
@@ -145,9 +153,21 @@ if __name__ == '__main__':
 
     rd = {}
     this_dir            = 'sept2017'
-    rd['srcs']          = 'data/histograms/{!s}/*.nc'.format('sept2017')
+    rd['srcs']          = 'data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir)
     rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
     run_dcts.append(rd)
+
+#    rd = {}
+#    this_dir            = 'US_mids_0-10000km_dx30min_dy500km'
+#    rd['srcs']          = 'data/histograms/{!s}/*.nc'.format(this_dir)
+#    rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
+#    run_dcts.append(rd)
+
+#    rd = {}
+#    this_dir            = 'Europe_mids_0-10000km_dx30min_dy500km'
+#    rd['srcs']          = 'data/histograms/{!s}/*.nc'.format(this_dir)
+#    rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
+#    run_dcts.append(rd)
 
     for rd in run_dcts:
         main(rd)

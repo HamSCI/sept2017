@@ -153,14 +153,42 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
+#    rd  = {}
+#    rd['sDate']                 = datetime.datetime(2016,1,1)
+#    rd['eDate']                 = datetime.datetime(2018,1,1)
+#    rd['params']                = ['spot_density']
+#    rd['xkeys']                 = ['ut_hrs','slt_mid']
+#    rd['rgc_lim']               = (0,10000)
+#    rd['filter_region']         = None
+#    rd['filter_region_kind']    = 'mids'
+#    rd['xb_size_min']           = 30.
+#    rd['yb_size_km']            = 500.
+#    rd['output_dir']            = output_dir
+#    rd['band_obj']              = gl.BandData()
+#    run_dcts.append(rd)
+
+#    rd  = {}
+#    rd['sDate']                 = datetime.datetime(2017,9,1)
+#    rd['eDate']                 = datetime.datetime(2017,10,1)
+#    rd['params']                = ['spot_density']
+#    rd['xkeys']                 = ['ut_hrs','slt_mid']
+#    rd['rgc_lim']               = (0,10000)
+#    rd['filter_region']         = 'US'
+#    rd['filter_region_kind']    = 'mids'
+#    rd['xb_size_min']           = 30.
+#    rd['yb_size_km']            = 500.
+#    rd['output_dir']            = output_dir
+#    rd['band_obj']              = gl.BandData()
+#    run_dcts.append(rd)
+
     rd  = {}
-    rd['sDate']                 = datetime.datetime(2016,1,1)
-    rd['eDate']                 = datetime.datetime(2018,1,1)
+    rd['sDate']                 = datetime.datetime(2017,9,1)
+    rd['eDate']                 = datetime.datetime(2017,10,1)
     rd['params']                = ['spot_density']
     rd['xkeys']                 = ['ut_hrs','slt_mid']
     rd['rgc_lim']               = (0,10000)
-    rd['filter_region']         = None
-    rd['filter_region_kind']    = 'midpoints'
+    rd['filter_region']         = 'Europe'
+    rd['filter_region_kind']    = 'mids'
     rd['xb_size_min']           = 30.
     rd['yb_size_km']            = 500.
     rd['output_dir']            = output_dir

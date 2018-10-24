@@ -482,6 +482,7 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
 
     # Regional Filtering
     if filter_region is not None:
+        df_raw  = df.copy()
         df      = regional_filter(filter_region,df,kind=filter_region_kind)
 
     df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
