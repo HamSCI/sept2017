@@ -20,7 +20,7 @@ gl.prep_output({0:output_dir})
 
 class SymH():
     def __init__(self,years=[2016,2017],
-            symh_pattern    = 'data/kyoto_wdc/SYM-{!s}.dat.txt',
+            symh_pattern    = 'data/kyoto_wdc/SYM-{!s}.dat.txt.bz2',
             ssc_pattern     = 'data/obsebre.es/ssc/ssc_{!s}_*.txt',
             output_dir      = 'output'):
         self.years          = years
