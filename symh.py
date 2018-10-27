@@ -15,7 +15,7 @@ import tqdm
 import gen_lib as gl
 
 this_name   = os.path.basename(__file__[:-3])
-output_dir  = os.path.join('output',this_name)
+output_dir  = os.path.join('output/galleries',this_name)
 gl.prep_output({0:output_dir})
 
 class SymH():
