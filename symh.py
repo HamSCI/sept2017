@@ -10,6 +10,7 @@ mpl.use('Agg')
 from matplotlib import pyplot as plt
 
 from collections import OrderedDict
+import tqdm
 
 import gen_lib as gl
 
@@ -17,21 +18,24 @@ this_name   = os.path.basename(__file__[:-3])
 output_dir  = os.path.join('output',this_name)
 gl.prep_output({0:output_dir})
 
-def get_max(row,window,series):
-    sTime   = row[0]
-    td      = pd.Timedelta(window)
-
-    tf      = np.logical_and(series.index >= sTime, series.index < sTime+td)
-    tmp     = series[tf]
-    idxmax  = series.idxmax()
-    mx      = series.max()
-    return (idxmax,mx)
-
-
 class SymH():
-    def __init__(self,years=[2017],pattern='data/kyoto_wdc/SYM-{!s}.dat.txt',output_dir='output'):
-        self.output_dir = output_dir
+    def __init__(self,years=[2016,2017],
+            symh_pattern    = 'data/kyoto_wdc/SYM-{!s}.dat.txt',
+            ssc_pattern     = 'data/obsebre.es/ssc/ssc_{!s}_*.txt',
+            output_dir      = 'output'):
+        self.years          = years
+        self.symh_pattern   = symh_pattern
+        self.ssc_pattern    = ssc_pattern
+        self.output_dir     = output_dir
+
+        self._load_symh()
+        self._load_sscs()
+        self._calc_storms_df()
         
+    def _load_symh(self):
+        years   = self.years
+        pattern = self.symh_pattern
+
         # Load Kyoto SYM-H #####################
         if years is None:
             fpaths          = glob.glob(pattern.format('*'))
@@ -49,7 +53,118 @@ class SymH():
         tf      = df[:] == 99999
         df[tf]  = np.nan
         df.dropna(inplace=True)
+        df = df[~df.index.duplicated(keep='first')]
         self.df = df
+
+    def _load_sscs(self):
+        """
+        Load multiple SSC files from http://www.obsebre.es/en/rapid into a dataframe
+        and produce a list only of SSC times.
+
+        Store these as attributes to the class.
+        """
+        years   = self.years
+        pattern = self.ssc_pattern
+
+        # Load SSC Data Downloaded from http://www.obsebre.es/en/rapid #
+        if years is None:
+            years   = ['*']
+
+        fpaths  = []
+        for yr in years:
+            fpaths  += glob.glob(pattern.format(yr))
+        fpaths.sort()
+
+        df = pd.DataFrame()
+        for fpath in fpaths:
+            dft = self._load_ssc(fpath)
+            df  = df.append(dft)
+
+        self.df_ssc     = df
+        self.ssc_list   = df.index.to_pydatetime().tolist()
+
+    def _load_ssc(self,fpath):
+        """
+        Load a single SSC file from http://www.obsebre.es/en/rapid
+        into a dataframe.
+        """
+
+        print(fpath)
+        with open(fpath,'r') as fl:
+            lines   = fl.readlines()
+
+        to_df   = []
+        for line in lines:
+            od  = OrderedDict()
+
+            spl = line.replace('\n','').split()
+            try:
+                dt  = datetime.datetime( *(int(float(x)) for x in spl[:5]) )
+            except:
+                continue
+
+            od['datetime']  = dt
+            to_df.append(od)
+
+        dft = pd.DataFrame(to_df)
+        dft = dft.set_index('datetime')
+        return dft
+
+    def _load_ssc_extended(self,fpath):
+        """
+        Load a single SSC file from http://www.obsebre.es/en/rapid
+        into a dataframe.
+        """
+
+        print(fpath)
+        with open(fpath,'r') as fl:
+            lines   = fl.readlines()
+
+        to_df   = []
+        for line in lines:
+            od  = OrderedDict()
+
+            spl = line.replace('\n','').split()
+            try:
+                dt  = datetime.datetime( *(int(float(x)) for x in spl[:5]) )
+            except:
+                continue
+
+            od['datetime']  = dt
+            od['rise_0']    = float(spl[5])
+            od['rise_1']    = float(spl[6])
+            od['rise_2']    = float(spl[7])
+            od['rise_3']    = float(spl[8])
+            od['rise_4']    = float(spl[9])
+
+            od['amp_0']     = float(spl[10].replace(',','.'))
+            od['amp_1']     = float(spl[11].replace(',','.'))
+            od['amp_2']     = float(spl[12].replace(',','.'))
+            od['amp_3']     = float(spl[13].replace(',','.'))
+            od['amp_4']     = float(spl[14].replace(',','.'))
+
+            od['qual_0']    = int(spl[15])
+            od['qual_1']    = int(spl[16])
+            od['qual_2']    = int(spl[17])
+            od['qual_3']    = int(spl[18])
+            od['qual_4']    = int(spl[19])
+
+            od['obs_0']     = spl[20]
+            od['obs_1']     = spl[21]
+            od['obs_2']     = spl[22]
+            od['obs_3']     = spl[23]
+            od['obs_4']     = spl[24]
+
+            od['type']      = spl[25]
+
+            to_df.append(od)
+
+        dft = pd.DataFrame(to_df)
+        dft = dft.set_index('datetime')
+        tf  = dft['type'] == 'SSC'
+        dft = dft[tf].copy()
+        return dft
+
     def plot(self,var='SYM-H',figsize=(10,8)):
         fig = plt.figure(figsize=figsize)
         ax  = fig.add_subplot(1,1,1)
@@ -63,92 +178,181 @@ class SymH():
         fpath   = os.path.join(self.output_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
 
-    def detect_storms(self,window='6H',ssc_min=0,mainPhase_max=-50):
-        t0  = datetime.datetime.now()
-        print('Storm Detection')
+    def plot_storms(self,figsize=(15,8),xlim=(-1,3),clear=False):
+        t_before    = datetime.timedelta(days=xlim[0]) 
+        t_after     = datetime.timedelta(days=xlim[1])
 
-        # Calculate the max and min SYM-H value in each rolling window.
-        df          = self.df['SYM-H'].to_frame()
-        df_min      = df.rolling(window).min()
-        df_max      = df.rolling(window).max()
+        output_dir  = os.path.join(self.output_dir,'storms')
+        gl.prep_output({0:output_dir},clear=clear)
 
-        df['min']   = df_min
-        df['max']   = df_max
-        
-        # Eliminate any windows where the max and min are outside of the
-        # specified thresholds.
-        tf          = np.logical_and(df['max'] > ssc_min, df['min'] <= mainPhase_max)
-        df_stormFind    = df[tf].copy()
-        df_stormFind.sort_index(inplace=True)
+        for ssc in self.ssc_list:
+            print(ssc)
+            ep0 = ssc + t_before
+            ep1 = ssc + t_after
 
-        # Calculate the slope on the max values. The max for each storm period should
-        # monotonically decrease. Then, remove all zero/negative values.
-        smaxes      = df_stormFind['max']
-        dsmaxes     = smaxes.diff()
-        tf          = dsmaxes <= 0
-        dsmaxes[tf] = np.nan
-        dsmaxes.dropna(inplace=True)
+            fig = plt.figure(figsize=figsize)
+            ax  = fig.add_subplot(1,1,1)
+            ax.axvline(0,ls=':',color='k')
+            ax.axhline(0,ls=':',color='k')
 
-        # Create a column that only has the SYM-H max values at their occurrence time
-        # and NaN everywhere else.
-        smax                    = df_stormFind.loc[dsmaxes.index,'max'] 
-        df_stormFind['smax']    = smax
-        self.df_stormFind       = df_stormFind
+            tf  = np.logical_and(self.df.index >= ep0, self.df.index < ep1)
+            dft = self.df[tf]
+            xx  = (dft.index - ssc).total_seconds()/86400.
+            yy  = dft['SYM-H']
+            ax.plot(xx,yy,marker='.',label='SYM-H')
 
-        df_storm                = smax.to_frame()
-        attrs                   = OrderedDict()
-        attrs['window']         = window
-        attrs['ssc_min']        = ssc_min
-        attrs['mainPhase_max']  = mainPhase_max
-        self.df_storm           = df_storm
-        self.detect_attrs       = attrs
+            ax.set_title(ssc.strftime('%d %b %Y %H%M UT'))
+            ax.set_xlabel('Epoch Time')
+            ax.set_ylabel('Sym-H [nT]')
 
-        # Plot the Storm Finder results as a test.
-        self.plot_df_stormFind()
+            ax.set_xlim(xlim)
+            ax.set_ylim(-500,100)
 
-        # Generate the Storm Report
-        fname   = 'storm_report.csv'
-        fpath   = os.path.join(self.output_dir,fname)
-        with open(fpath,'w') as fl:
-            fl.write('# Geomagnetic Storm Detection Report\n')
-            for key,val in attrs.items():
-                line    = '# {!s}: {!s}\n'.format(key,val)
-                fl.write(line)
+            ax.legend()
 
-        df_storm.to_csv(fpath,mode='a')
+            fig.tight_layout()
+            ssc_str = ssc.strftime('%Y%m%d.%H%M')
+            fname   = '{!s}.png'.format(ssc_str)
+            fpath   = os.path.join(output_dir,fname)
+            fig.savefig(fpath,bbox_inches='tight')
 
-        t1  = datetime.datetime.now()
-        print(' --> {!s} s'.format((t1-t0).total_seconds()))
-        import ipdb; ipdb.set_trace()
+    def plot_storms_sea(self,figsize=(15,8),xlim=(-1,3),clear=False):
+        t_before    = datetime.timedelta(days=xlim[0]) 
+        t_after     = datetime.timedelta(days=xlim[1])
 
-    def plot_df_stormFind(self):
-        df_stormFind    = self.df_stormFind
-        fig = plt.figure(figsize=(15,8))
+        output_dir  = os.path.join(self.output_dir,'storms')
+        gl.prep_output({0:output_dir},clear=clear)
+
+        fig = plt.figure(figsize=figsize)
         ax  = fig.add_subplot(1,1,1)
+        ax.axvline(0,ls=':',color='k')
+        ax.axhline(0,ls=':',color='k')
 
-        var = 'max'
-        xx  = df_stormFind.index
-        yy  = df_stormFind[var]
-        ax.plot(xx,yy,label=var,marker='*')
+        for ssc in self.ssc_list:
+            print(ssc)
+            ep0 = ssc + t_before
+            ep1 = ssc + t_after
 
-        var = 'smax'
-        xx  = df_stormFind.index
-        yy  = df_stormFind[var]
-        ax.plot(xx,yy,label=var,marker='o')
 
-        ax.set_xlabel('UT Time')
-        ax.set_ylabel(var)
-        ax.legend()
+            tf  = np.logical_and(self.df.index >= ep0, self.df.index < ep1)
+            dft = self.df[tf]
+            xx  = (dft.index - ssc).total_seconds()/86400.
+            yy  = dft['SYM-H']
+            ax.plot(xx,yy)
+
+            ax.set_xlabel('Epoch Time')
+            ax.set_ylabel('Sym-H [nT]')
+
+            ax.set_xlim(xlim)
+            ax.set_ylim(-500,100)
+
+        ssc0    = min(self.ssc_list).strftime('%b %Y')
+        ssc1    = max(self.ssc_list).strftime('%b %Y')
+        title   = '{!s} - {!s} ({!s} Storms)'.format(ssc0,ssc1,len(self.ssc_list))
+        ax.set_title(title)
+
         fig.tight_layout()
-        fname   = '{!s}.png'.format(var)
-        fpath   = os.path.join(self.output_dir,fname)
+        fname   = 'sea.png'
+        fpath   = os.path.join(output_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
 
+    def _calc_storms_df(self,xlim=(-1,3)):
+        self.xlim   = xlim
+
+        t_before    = datetime.timedelta(days=xlim[0]) 
+        t_after     = datetime.timedelta(days=xlim[1])
+
+        # Time Vector in Seconds
+        time_vec    = np.arange(xlim[0]*1440,xlim[1]*1440) * 60.
+        time_ser    = pd.Series(None,time_vec)
+
+        storms_df    = pd.DataFrame()
+        for ssc in self.ssc_list:
+            print(ssc)
+            ep0 = ssc + t_before
+            ep1 = ssc + t_after
+
+            tf          = np.logical_and(self.df.index >= ep0, self.df.index < ep1)
+            dft         = self.df[tf]['SYM-H'].copy()
+            tmp         = (dft.index - ssc).total_seconds()
+            dft.index   = tmp
+
+            # Interpolate onto standard time grid.
+            try:
+                df_new      = dft.combine_first(time_ser)
+            except:
+                import ipdb; ipdb.set_trace()
+            df_new      = df_new.interpolate().reindex(time_vec)
+
+            data        = np.array([df_new.tolist()])
+
+            this_df     = pd.DataFrame(data=data,index=[ssc],columns=time_vec)
+            storms_df    = storms_df.append(this_df)
+        self.storms_df   = storms_df
+
+    def plot_storms_df_sea(self,figsize=(15,8),clear=False):
+        xlim        = self.xlim
+
+        output_dir  = os.path.join(self.output_dir,'storms_df')
+        gl.prep_output({0:output_dir},clear=clear)
+
+        fig = plt.figure(figsize=figsize)
+        ax  = fig.add_subplot(1,1,1)
+        ax.axvline(0,ls=':',color='k')
+        ax.axhline(0,ls=':',color='k')
+
+        for ssc,data in self.storms_df.iterrows():
+            print(ssc)
+            xx  = data.index/86400.
+            yy  = data
+            ax.plot(xx,yy,alpha=0.4)
+        
+        hdls    = []
+        labels  = []
+
+        xx  = data.index/86400.
+
+        yy  = self.storms_df.quantile(0.75)
+        hdl = ax.plot(xx,yy,lw=1,color='k')
+        hdls.append(hdl[0])
+        labels.append('Upper Quartile')
+
+        yy  = self.storms_df.median()
+        hdl = ax.plot(xx,yy,lw=3,color='k')
+        hdls.append(hdl[0])
+        labels.append('Median')
+
+        yy  = self.storms_df.quantile(0.25)
+        hdl = ax.plot(xx,yy,lw=1,color='k')
+        hdls.append(hdl[0])
+        labels.append('Lower Quartile')
+
+        ax.legend(hdls,labels)
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(-500,100)
+
+        ax.set_xlabel('Epoch Time')
+        ax.set_ylabel('Sym-H [nT]')
+
+        ssc0    = self.storms_df.index.min().strftime('%b %Y')
+        ssc1    = self.storms_df.index.max().strftime('%b %Y')
+        title   = '{!s} - {!s} ({!s} Storms)'.format(ssc0,ssc1,len(self.ssc_list))
+        ax.set_title(title)
+
+        fig.tight_layout()
+        fname   = 'sea.png'
+        fpath   = os.path.join(output_dir,fname)
+        fig.savefig(fpath,bbox_inches='tight')
 
 def main():
-    symh = SymH(output_dir=output_dir)
-    symh.detect_storms()
+    years = np.arange(2001,2014)
+    symh = SymH(years=years,output_dir=output_dir)
 #    symh.plot()
+#    symh.plot_storms(clear=True)
+#    symh.plot_storms_sea(clear=True)
+    symh.plot_storms_df_sea(clear=True)
+    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
