@@ -8,11 +8,11 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import xarray as xr
+import netCDF4
 
 import tqdm
 
-import gen_lib as gl
-import netCDF4
+from . import gen_lib as gl
 
 class DataLoader(object):
     def __init__(self,nc,groups=None):

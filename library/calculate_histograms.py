@@ -9,8 +9,8 @@ import xarray as xr
 
 import tqdm
 
-from timeutils import daterange
-import gen_lib as gl
+from .timeutils import daterange
+from . import gen_lib as gl
 
 def calc_histogram(frame,attrs):
     xkey    = attrs['xkey']
@@ -54,17 +54,22 @@ def main(run_dct):
     band_obj            = run_dct['band_obj']
     xb_size_min         = run_dct['xb_size_min']
     yb_size_km          = run_dct['yb_size_km']
-    output_dir          = run_dct['output_dir']
+    base_dir            = run_dct.get('base_dir')
+    output_dir          = run_dct.get('output_dir')
 
     # Define path for saving NetCDF Files
-    tmp = []
-    if filter_region is not None:
-        tmp.append('{!s}'.format(filter_region))
-        tmp.append('{!s}'.format(filter_region_kind))
-    tmp.append('{:.0f}-{:.0f}km'.format(rgc_lim[0],rgc_lim[1]))
-    tmp.append('dx{:.0f}min'.format(xb_size_min))
-    tmp.append('dy{:.0f}km'.format(yb_size_km))
-    ncs_path = os.path.join(output_dir,'_'.join(tmp))
+    if output_dir is None:
+        tmp = []
+        if filter_region is not None:
+            tmp.append('{!s}'.format(filter_region))
+            tmp.append('{!s}'.format(filter_region_kind))
+        tmp.append('{:.0f}-{:.0f}km'.format(rgc_lim[0],rgc_lim[1]))
+        tmp.append('dx{:.0f}min'.format(xb_size_min))
+        tmp.append('dy{:.0f}km'.format(yb_size_km))
+        ncs_path = os.path.join(base_dir,'_'.join(tmp))
+    else:
+        ncs_path = output_dir
+
     gl.prep_output({0:ncs_path},clear=False)
 
     # Loop through dates
@@ -162,8 +167,8 @@ def main(run_dct):
             data_ds.to_netcdf(nc_path,mode='a',group=group)
 
 if __name__ == "__main__":
-    output_dir  = 'data/histograms'
-    gl.prep_output({0:output_dir},clear=False)
+    base_dir  = 'data/histograms'
+    gl.prep_output({0:base_dir},clear=False)
 
     run_dcts    = []
 
@@ -177,7 +182,7 @@ if __name__ == "__main__":
     rd['filter_region_kind']    = 'mids'
     rd['xb_size_min']           = 30.
     rd['yb_size_km']            = 500.
-    rd['output_dir']            = output_dir
+    rd['base_dir']            = base_dir
     rd['band_obj']              = gl.BandData()
     run_dcts.append(rd)
 
@@ -191,7 +196,7 @@ if __name__ == "__main__":
 #    rd['filter_region_kind']    = 'mids'
 #    rd['xb_size_min']           = 30.
 #    rd['yb_size_km']            = 500.
-#    rd['output_dir']            = output_dir
+#    rd['base_dir']            = base_dir
 #    rd['band_obj']              = gl.BandData()
 #    run_dcts.append(rd)
 
@@ -205,7 +210,7 @@ if __name__ == "__main__":
 #    rd['filter_region_kind']    = 'mids'
 #    rd['xb_size_min']           = 30.
 #    rd['yb_size_km']            = 500.
-#    rd['output_dir']            = output_dir
+#    rd['base_dir']            = base_dir
 #    rd['band_obj']              = gl.BandData()
 #    run_dcts.append(rd)
 

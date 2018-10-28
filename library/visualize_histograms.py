@@ -20,9 +20,12 @@ import netCDF4
 
 import tqdm
 
-import gen_lib as gl
-from timeutils import daterange
-from omni import Omni
+from . import gen_lib as gl
+from .timeutils import daterange
+from .omni import Omni
+
+print('Loading Omni and Sym-H Data for {!s}.'.format(__file__))
+omni    = Omni()
 
 pdict   = {}
 
@@ -87,6 +90,13 @@ class ncLoader(object):
         return fnames
             
     def _load_ncs(self):
+
+        # Return None if no data to load.
+        if self.fnames == []:
+            self.maps       = None
+            self.datasets   = None
+            return
+
         dss     = OrderedDict()
         maps    = []
 
@@ -133,14 +143,17 @@ class ncLoader(object):
 
         self.datasets   = dss
 
-    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',**kwargs):
+    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,**kwargs):
+        if self.datasets is None:
+            return
+
         map_da  = self.maps['spot_density']
         xlim_in = xlim
 
-        omni            = Omni()
-
         for group,ds in self.datasets.items():
             outdir  = os.path.join(baseout_dir,group)
+            if subdir is not None:
+                outdir = os.path.join(outdir,subdir)
             gl.prep_output({0:outdir},clear=False)
 
             for data_var in ds.data_vars:
@@ -224,7 +237,24 @@ class ncLoader(object):
                 fname   = '.'.join([date_str,self.basename,group,data_var,'png'])
                 fpath   = os.path.join(outdir,fname)
                 fig.savefig(fpath,bbox_inches='tight')
+                print('--> {!s}'.format(fpath))
                 plt.close(fig)
+
+def plot_dailies(run_dct):
+    sTime   = run_dct['sTime']
+    eTime   = run_dct['eTime']
+    dates   = daterange(sTime,eTime)
+
+    print('Plotting Dailies: {!s}'.format(run_dct['srcs']))
+    for this_sTime in dates:
+        this_eTime  = this_sTime + pd.Timedelta('1D')
+
+        rd              = run_dct.copy()
+        rd['sTime']     = this_sTime
+        rd['eTime']     = this_eTime
+        rd['subdir']    = 'dailies'
+        nc_obj          = ncLoader(**rd)
+        nc_obj.plot(**rd)
 
 def main(run_dct):
     nc_obj      = ncLoader(**run_dct)
@@ -237,7 +267,7 @@ if __name__ == '__main__':
 
     this_dir    = 'active'
     srcs        = []
-    srcs.append('data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir))
+#    srcs.append('data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir))
     srcs.append('data/histograms/{!s}/*.data.nc'.format(this_dir))
     
     for src in srcs:

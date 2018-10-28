@@ -11,11 +11,11 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-import geopack
-import calcSun
-
 import pickle
 import bz2
+
+from . import geopack
+from . import calcSun
 
 de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
 dxf_prop        = {'marker':'*','color':'blue'}

@@ -19,7 +19,7 @@ import netCDF4
 
 import tqdm
 
-import gen_lib as gl
+from . import gen_lib as gl
 
 pdict   = {}
 

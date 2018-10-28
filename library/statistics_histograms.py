@@ -11,7 +11,7 @@ import xarray as xr
 
 import tqdm
 
-import gen_lib as gl
+from . import gen_lib as gl
 
 class KeyParamStore(object):
     def __init__(self,xkeys,params):
