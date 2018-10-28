@@ -6,43 +6,37 @@ import matplotlib as mpl
 mpl.use('Agg')
 from matplotlib import pyplot as plt
 
+from .symh import SymH
+
 def to_ut_hr(dt):
     return dt.hour + dt.minute/60. + dt.second/3600.
 
 class Omni():
-    def __init__(self):
-        # Load OMNI ############################
-        omni_csv        = 'data/omni/omni2_3051.csv'
+    def __init__(self,years=[2016,2017]):
+        self._load_omni()
+        self._load_symh(years)
+
+    def _load_omni(self,omni_csv='data/omni/omni2_3051.csv'):
+        """
+        Load OMNI data.
+        """
+
         omni_df         = pd.read_csv(omni_csv,
                             parse_dates={'datetime':['year','doy','hr']},
                             date_parser=self._date_parser)
         omni_df         = omni_df.set_index('datetime')
         omni_df['Kp']   = omni_df['Kp_x10']/10.
         del omni_df['Kp_x10']
-        self.df     = omni_df
 
-        # Load Kyoto SYM-H #####################
-#        fpath           ='data/kyoto_wdc/WWW_aeasy00025746.dat.txt.bz2'
-#        df_symasy       = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
-#        df_symasy       = df_symasy.set_index('DATE_TIME')
-#        df_symasy       = df_symasy[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
-#        self.df_symasy  = df_symasy
+        self.df         = omni_df
 
-        symh_pattern    = 'data/kyoto_wdc/SYM-{!s}.dat.txt.bz2'
-        fpaths          = glob.glob(symh_pattern.format('*'))
-        df = pd.DataFrame()
-        for fpath in fpaths:
-            df_tmp      = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
-            df_tmp      = df_tmp.set_index('DATE_TIME')
-            df_tmp      = df_tmp[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
-            df          = df.append(df_tmp)
-
-        df.sort_index(inplace=True)
-        tf      = df[:] == 99999
-        df[tf]  = np.nan
-        df.dropna(inplace=True)
-        df = df[~df.index.duplicated(keep='first')]
-        self.df_symasy  = df
+    def _load_symh(self,years=None):
+        """
+        Create and load SymH data/object.
+        """
+        symh            = SymH(years)
+        self.symh       = symh
+        self.df_symasy  = symh.df
 
     def _date_parser(self,years,doys,hrs):
         datetimes = []
