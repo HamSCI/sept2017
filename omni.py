@@ -1,4 +1,5 @@
 import datetime
+import glob
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -21,11 +22,27 @@ class Omni():
         self.df     = omni_df
 
         # Load Kyoto SYM-H #####################
-        fpath           ='data/kyoto_wdc/WWW_aeasy00025746.dat.txt'
-        df_symasy       = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
-        df_symasy       = df_symasy.set_index('DATE_TIME')
-        df_symasy       = df_symasy[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
-        self.df_symasy  = df_symasy
+#        fpath           ='data/kyoto_wdc/WWW_aeasy00025746.dat.txt.bz2'
+#        df_symasy       = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
+#        df_symasy       = df_symasy.set_index('DATE_TIME')
+#        df_symasy       = df_symasy[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
+#        self.df_symasy  = df_symasy
+
+        symh_pattern    = 'data/kyoto_wdc/SYM-{!s}.dat.txt.bz2'
+        fpaths          = glob.glob(symh_pattern.format('*'))
+        df = pd.DataFrame()
+        for fpath in fpaths:
+            df_tmp      = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
+            df_tmp      = df_tmp.set_index('DATE_TIME')
+            df_tmp      = df_tmp[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
+            df          = df.append(df_tmp)
+
+        df.sort_index(inplace=True)
+        tf      = df[:] == 99999
+        df[tf]  = np.nan
+        df.dropna(inplace=True)
+        df = df[~df.index.duplicated(keep='first')]
+        self.df_symasy  = df
 
     def _date_parser(self,years,doys,hrs):
         datetimes = []

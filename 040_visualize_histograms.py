@@ -22,6 +22,7 @@ import tqdm
 
 import gen_lib as gl
 from timeutils import daterange
+from omni import Omni
 
 pdict   = {}
 
@@ -136,6 +137,8 @@ class ncLoader(object):
         map_da  = self.maps['spot_density']
         xlim_in = xlim
 
+        omni            = Omni()
+
         for group,ds in self.datasets.items():
             outdir  = os.path.join(baseout_dir,group)
             gl.prep_output({0:outdir},clear=False)
@@ -167,14 +170,24 @@ class ncLoader(object):
                 freqs       = np.sort(data_da['freq_MHz'])[::-1]
 
                 nx      = 100
-                ny      = len(freqs)
+                ny      = len(freqs)+1
 
                 fig     = plt.figure(figsize=(30,4*ny))
 
-                plt_nr  = 0
+                axs_to_adjust   = []
+
+                inx = 0
+                ax  = plt.subplot2grid((ny,nx),(inx,35),colspan=65)
+                ax.set_xlim(xlim)
+                ax.set_ylim(ylim)
+
+                omni_axs        = omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
+                                    kp_markersize=10,dst_lw=2,dst_param='SYM-H')
+                axs_to_adjust   += omni_axs
+
                 for inx,freq in enumerate(freqs):
-                    plt_nr += 1
-                    ax = plt.subplot2grid((ny,nx),(inx,0),projection=ccrs.PlateCarree(),colspan=30)
+                    plt_row = inx+1
+                    ax = plt.subplot2grid((ny,nx),(plt_row,0),projection=ccrs.PlateCarree(),colspan=30)
 
                     ax.coastlines(zorder=10,color='w')
                     ax.plot(np.arange(10))
@@ -185,8 +198,7 @@ class ncLoader(object):
                     map_data.name   = 'log({})'.format(map_data.name)
                     map_data.plot.contourf(x=map_da.attrs['xkey'],y=map_da.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
                     
-                    plt_nr += 1
-                    ax = plt.subplot2grid((ny,nx),(inx,35),colspan=65)
+                    ax = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
                     data    = data_da.sel(freq_MHz=freq).copy()
                     if log_z:
                         tf          = data < 1.
@@ -194,12 +206,16 @@ class ncLoader(object):
                         data.values[tf] = 0
                         data.name   = 'log({})'.format(data.name)
 
-                    data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30)
+                    result  = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30)
 
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
+                    hist_ax = ax
 
                 fig.tight_layout()
+
+                for ax_0 in axs_to_adjust:
+                    gl.adjust_axes(ax_0,hist_ax)
 
                 sTime_str   = self.sTime.strftime('%Y%m%d.%H%MUT')
                 eTime_str   = self.eTime.strftime('%Y%m%d.%H%MUT')
@@ -225,7 +241,7 @@ if __name__ == '__main__':
     rd['srcs']          = 'data/histograms/{!s}/*.data.nc'.format(this_dir)
     rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
     rd['sTime']         = datetime.datetime(2017,9,1)
-    rd['eTime']         = datetime.datetime(2017,9,3)
+    rd['eTime']         = datetime.datetime(2017,10,1)
     run_dcts.append(rd)
 
     for rd in run_dcts:
