@@ -127,7 +127,7 @@ def main(run_dct):
                     attrs['xkey']               = xkey
                     attrs['param']              = param
                     attrs['dx']                 = xb_size_min/60.
-                    attrs['xlim']               = (0,24+attrs['dx'])
+                    attrs['xlim']               = (0,24)
                     attrs['ykey']               = 'dist_Km'
                     attrs['ylim']               = rgc_lim
                     attrs['dy']                 = yb_size_km
