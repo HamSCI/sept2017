@@ -168,8 +168,8 @@ if __name__ == "__main__":
     run_dcts    = []
 
     rd  = {}
-    rd['sDate']                 = datetime.datetime(2017,9,1)
-    rd['eDate']                 = datetime.datetime(2017,10,1)
+    rd['sDate']                 = datetime.datetime(2016,1,1)
+    rd['eDate']                 = datetime.datetime(2018,1,1)
     rd['params']                = ['spot_density']
     rd['xkeys']                 = ['ut_hrs','slt_mid']
     rd['rgc_lim']               = (0,10000)

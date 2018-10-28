@@ -113,7 +113,7 @@ if __name__ == '__main__':
     run_dcts = []
 
     rd = {}
-    rd['src_dir']   = 'data/histograms/sept2017'
+    rd['src_dir']   = 'data/histograms/active'
     rd['params']    = ['spot_density']
     rd['xkeys']     = ['ut_hrs','slt_mid']
     rd['stats']     = ['sum','mean','median','std']

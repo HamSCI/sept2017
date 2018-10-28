@@ -78,12 +78,14 @@ def pstat(param,stat):
     return '_'.join([param,stat])
 
 def main(run_dct):
-    src_dir = run_dct['src_dir']
-    xkeys   = run_dct['xkeys']
-    params  = run_dct.get('params')
-    stats   = run_dct['stats']
+    src_dir     = run_dct['src_dir']
+    xkeys       = run_dct['xkeys']
+    params      = run_dct.get('params')
+    stats       = run_dct['stats']
+    stats_nc    = run_dct.get('stats_nc')
 
-    stats_nc    = os.path.join(src_dir,'stats.nc')
+    if stats_nc is None:
+        stats_nc    = os.path.join(src_dir,'stats.nc')
     stats_obj   = DataLoader(stats_nc)
 
     ncs = glob.glob(os.path.join(src_dir,'*.data.nc'))
@@ -97,7 +99,7 @@ if __name__ == '__main__':
     run_dcts = []
 
     rd = {}
-    rd['src_dir']   = 'data/histograms/sept2017'
+    rd['src_dir']   = 'data/histograms/active'
     rd['xkeys']     = ['ut_hrs','slt_mid']
     rd['stats']     = ['pct_err','z_score']
 

@@ -233,16 +233,20 @@ def main(run_dct):
 if __name__ == '__main__':
     baseout_dir = 'output/galleries/histograms'
 
-    run_dcts = []
+    run_dcts    = []
 
-    rd = {}
-    this_dir            = 'sept2017'
-#    rd['srcs']          = 'data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir)
-    rd['srcs']          = 'data/histograms/{!s}/*.data.nc'.format(this_dir)
-    rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
-    rd['sTime']         = datetime.datetime(2017,9,1)
-    rd['eTime']         = datetime.datetime(2017,10,1)
-    run_dcts.append(rd)
+    this_dir    = 'active'
+    srcs        = []
+    srcs.append('data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir))
+    srcs.append('data/histograms/{!s}/*.data.nc'.format(this_dir))
+    
+    for src in srcs:
+        rd = {}
+        rd['srcs']          = src
+        rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
+        rd['sTime']         = datetime.datetime(2017,9,7)
+        rd['eTime']         = datetime.datetime(2017,9,10)
+        run_dcts.append(rd)
 
     for rd in run_dcts:
         main(rd)
