@@ -22,10 +22,7 @@ import tqdm
 
 from . import gen_lib as gl
 from .timeutils import daterange
-from .omni import Omni
-
-print('Loading Omni and Sym-H Data for {!s}.'.format(__file__))
-omni    = Omni()
+from .geospace_env import GeospaceEnv
 
 pdict   = {}
 
@@ -143,9 +140,13 @@ class ncLoader(object):
 
         self.datasets   = dss
 
-    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,**kwargs):
+    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,
+            geospace_env=None,**kwargs):
         if self.datasets is None:
             return
+
+        if geospace_env is None:
+            geospace_env    = GeospaceEnv()
 
         map_da  = self.maps['spot_density']
         xlim_in = xlim
@@ -194,7 +195,7 @@ class ncLoader(object):
                 ax.set_xlim(xlim)
                 ax.set_ylim(ylim)
 
-                omni_axs        = omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
+                omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
                                     kp_markersize=10,dst_lw=2,dst_param='SYM-H')
                 axs_to_adjust   += omni_axs
 

@@ -14,6 +14,8 @@ xkeys       = ['ut_hrs','slt_mid']
 sTime       = datetime.datetime(2017,9,1)
 eTime       = datetime.datetime(2017,9,3)
 
+geo_env     = lib.GeospaceEnv()
+
 # Create histogram NetCDF Files ################################################
 rd  = {}
 rd['sDate']                 = sTime
@@ -51,6 +53,7 @@ rd['srcs']                  = os.path.join(data_dir,'*.data.nc')
 rd['baseout_dir']           = plot_dir
 rd['sTime']                 = sTime
 rd['eTime']                 = eTime
+rd['geospace_env']          = geo_env
 lib.visualize_histograms.main(rd)
 lib.visualize_histograms.plot_dailies(rd)
 

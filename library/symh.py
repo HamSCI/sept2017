@@ -110,61 +110,6 @@ class SymH():
         dft = dft.set_index('datetime')
         return dft
 
-    def _load_ssc_extended(self,fpath):
-        """
-        Load a single SSC file from http://www.obsebre.es/en/rapid
-        into a dataframe.
-        """
-
-        print(fpath)
-        with open(fpath,'r') as fl:
-            lines   = fl.readlines()
-
-        to_df   = []
-        for line in lines:
-            od  = OrderedDict()
-
-            spl = line.replace('\n','').split()
-            try:
-                dt  = datetime.datetime( *(int(float(x)) for x in spl[:5]) )
-            except:
-                continue
-
-            od['datetime']  = dt
-            od['rise_0']    = float(spl[5])
-            od['rise_1']    = float(spl[6])
-            od['rise_2']    = float(spl[7])
-            od['rise_3']    = float(spl[8])
-            od['rise_4']    = float(spl[9])
-
-            od['amp_0']     = float(spl[10].replace(',','.'))
-            od['amp_1']     = float(spl[11].replace(',','.'))
-            od['amp_2']     = float(spl[12].replace(',','.'))
-            od['amp_3']     = float(spl[13].replace(',','.'))
-            od['amp_4']     = float(spl[14].replace(',','.'))
-
-            od['qual_0']    = int(spl[15])
-            od['qual_1']    = int(spl[16])
-            od['qual_2']    = int(spl[17])
-            od['qual_3']    = int(spl[18])
-            od['qual_4']    = int(spl[19])
-
-            od['obs_0']     = spl[20]
-            od['obs_1']     = spl[21]
-            od['obs_2']     = spl[22]
-            od['obs_3']     = spl[23]
-            od['obs_4']     = spl[24]
-
-            od['type']      = spl[25]
-
-            to_df.append(od)
-
-        dft = pd.DataFrame(to_df)
-        dft = dft.set_index('datetime')
-        tf  = dft['type'] == 'SSC'
-        dft = dft[tf].copy()
-        return dft
-
     def plot(self,var='SYM-H',figsize=(10,8)):
         fig = plt.figure(figsize=figsize)
         ax  = fig.add_subplot(1,1,1)
@@ -268,7 +213,7 @@ class SymH():
 
         storms_df    = pd.DataFrame()
         for ssc in self.ssc_list:
-            print(ssc)
+#            print(ssc)
             ep0 = ssc + t_before
             ep1 = ssc + t_after
 
