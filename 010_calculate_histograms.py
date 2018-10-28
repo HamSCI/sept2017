@@ -70,9 +70,23 @@ def main(run_dct):
     # Loop through dates
     dates   = list(daterange(sDate, eDate))[:-1]
     for dt in tqdm.tqdm(dates):
+#    for dt in dates:
         # Load spots from CSVs
-        df         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
-                        filter_region=filter_region,filter_region_kind=filter_region_kind)
+        load_dates = [dt,dt+pd.Timedelta('1D')]
+
+        df  = pd.DataFrame()
+        for ld_inx,load_date in enumerate(load_dates):
+            ld_str  = load_date.strftime("%Y-%m-%d") 
+            dft = gl.load_spots_csv(ld_str,rgc_lim=rgc_lim,
+                            filter_region=filter_region,filter_region_kind=filter_region_kind)
+
+            for xkey in xkeys:
+                dft[xkey]    = ld_inx*24 + dft[xkey]
+
+            df  = df.append(dft,ignore_index=True)
+
+#        df         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
+#                        filter_region=filter_region,filter_region_kind=filter_region_kind)
 
         # Set Up Data Storage Containers
         data_das = {}
@@ -112,8 +126,8 @@ def main(run_dct):
                     # Compute General Data
                     attrs['xkey']               = xkey
                     attrs['param']              = param
-                    attrs['xlim']               = (0,24)
                     attrs['dx']                 = xb_size_min/60.
+                    attrs['xlim']               = (0,24+attrs['dx'])
                     attrs['ykey']               = 'dist_Km'
                     attrs['ylim']               = rgc_lim
                     attrs['dy']                 = yb_size_km
@@ -153,19 +167,19 @@ if __name__ == "__main__":
 
     run_dcts    = []
 
-#    rd  = {}
-#    rd['sDate']                 = datetime.datetime(2016,1,1)
-#    rd['eDate']                 = datetime.datetime(2018,1,1)
-#    rd['params']                = ['spot_density']
-#    rd['xkeys']                 = ['ut_hrs','slt_mid']
-#    rd['rgc_lim']               = (0,10000)
-#    rd['filter_region']         = None
-#    rd['filter_region_kind']    = 'mids'
-#    rd['xb_size_min']           = 30.
-#    rd['yb_size_km']            = 500.
-#    rd['output_dir']            = output_dir
-#    rd['band_obj']              = gl.BandData()
-#    run_dcts.append(rd)
+    rd  = {}
+    rd['sDate']                 = datetime.datetime(2017,9,1)
+    rd['eDate']                 = datetime.datetime(2017,10,1)
+    rd['params']                = ['spot_density']
+    rd['xkeys']                 = ['ut_hrs','slt_mid']
+    rd['rgc_lim']               = (0,10000)
+    rd['filter_region']         = None
+    rd['filter_region_kind']    = 'mids'
+    rd['xb_size_min']           = 30.
+    rd['yb_size_km']            = 500.
+    rd['output_dir']            = output_dir
+    rd['band_obj']              = gl.BandData()
+    run_dcts.append(rd)
 
 #    rd  = {}
 #    rd['sDate']                 = datetime.datetime(2017,9,1)
