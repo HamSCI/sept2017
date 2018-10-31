@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import glob
 import datetime
@@ -67,12 +66,25 @@ def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
 
         ax.coastlines(zorder=10,color='w')
         ax.plot(np.arange(10))
-        map_data  = map_da.sel(freq_MHz=freq).copy()
-        tf        = map_data < 1
-        map_data  = np.log10(map_data)
+        map_data            = map_da.sel(freq_MHz=freq).copy()
+        xkey                = data_da.attrs['xkey']
+        xvec                = np.array(map_data[xkey])
+        tf                  = np.logical_and(xvec >= xlim[0], xvec < xlim[1])
+        map_data            = map_data[{xkey:tf}].sum(dim=xkey)
+
+        map_n               = int(np.sum(map_data))
+        tf                  = map_data < 1
+        map_data            = np.log10(map_data)
         map_data.values[tf] = 0
-        map_data.name   = 'log({})'.format(map_data.name)
+        map_data.name       = 'log({})'.format(map_data.name)
+
         map_data.plot.contourf(x=map_da.attrs['xkey'],y=map_da.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
+
+        lweight = mpl.rcParams['axes.labelweight']
+        lsize   = mpl.rcParams['axes.labelsize']
+        fdict   = {'weight':lweight,'size':lsize}
+        ax.text(0.5,-0.1,'Radio Spots (N = {!s})'.format(map_n),
+                ha='center',transform=ax.transAxes,fontdict=fdict)
         
         plt_nr += 1
         ax = plt.subplot2grid((ny,nx),(inx,35),colspan=65)
@@ -94,37 +106,30 @@ def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
 class ncLoader(object):
     def __init__(self,nc):
         with netCDF4.Dataset(nc) as nc_fl:
-            groups  = [group for group in nc_fl.groups.keys()]
+            groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
 
         das = OrderedDict()
         for group in groups:
             das[group] = OrderedDict()
-            with xr.open_dataset(nc,group=group) as fl:
+            grp = '/'.join(['time_series',group])
+            with xr.open_dataset(nc,group=grp) as fl:
                 ds      = fl.load()
 
             for param in ds.data_vars:
                 das[group][param] = ds[param]
-
         xkeys   = groups.copy()
-        xkeys.remove('map')
 
-        self.nc     = nc
-        self.das    = das
-        self.xkeys  = xkeys
+        map_das = OrderedDict()
+        for xkey in xkeys:
+            grp = '/'.join(['map',xkey])
+            with xr.open_dataset(nc,group=grp) as fl:
+                ds      = fl.load()
+            map_das[xkey]   = ds[list(ds.data_vars)[0]]
 
-        self.get_map_da()
-
-    def get_map_da(self):
-        """
-        Get map dataarray. This chooses the first variable in a map dataset.
-        """
-        map_das     = self.das['map']
-        map_params  = [x for x in map_das]
-        map_param   = map_params[0]
-        map_da      = map_das[map_param]
-
-        self.map_da     = map_da
-        self.map_param  = map_param
+        self.nc         = nc
+        self.das        = das
+        self.xkeys      = xkeys
+        self.map_das    = map_das
 
 def main(run_dct):
     srcs        = run_dct['srcs']
@@ -133,29 +138,22 @@ def main(run_dct):
     ncs = glob.glob(srcs)
     ncs.sort()
 
-    for nc in ncs:
+    for nc_bz2 in ncs:
+        mbz2    = gl.MyBz2(nc_bz2)
+        mbz2.uncompress()
+        nc      = mbz2.unc_name
+
         ncl     = ncLoader(nc)
-        map_da  = ncl.map_da
         bname   = os.path.basename(nc)[:-3]
         for xkey in ncl.xkeys:
             outdir  = os.path.join(baseout_dir,xkey)
             gl.prep_output({0:outdir})
+            map_da  = ncl.map_das[xkey]
+
             for param,data_da in ncl.das[xkey].items():
                 fname   = '.'.join([bname,xkey,param,'png'])
                 fpath   = os.path.join(outdir,fname)
                 print(fpath)
                 plot_nc(data_da,map_da,png_path=fpath,**run_dct)
 
-if __name__ == '__main__':
-    baseout_dir = 'output/galleries/histograms'
-
-    run_dcts = []
-
-    rd = {}
-    this_dir            = 'active'
-    rd['srcs']          = 'data/histograms/{!s}/stats.nc'.format(this_dir)
-    rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
-    run_dcts.append(rd)
-
-    for rd in run_dcts:
-        main(rd)
+        mbz2.remove()
