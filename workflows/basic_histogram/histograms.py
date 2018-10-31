@@ -11,7 +11,7 @@ data_dir    = os.path.join('data/histograms',run_name)
 plot_dir    = os.path.join('output/galleries/histograms',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs','slt_mid']
-sTime       = datetime.datetime(2017,9,1)
+sTime       = datetime.datetime(2017,9,1,12)
 eTime       = datetime.datetime(2017,9,3)
 
 geo_env     = lib.GeospaceEnv()
@@ -38,19 +38,18 @@ geo_env     = lib.GeospaceEnv()
 #rd['xkeys']                 = xkeys
 #rd['stats']                 = ['sum','mean','median','std']
 #lib.statistics_histograms.main(rd)
-
-# Baseline daily observations against statistics ###############################
-rd = {}
-rd['src_dir']               = data_dir
-rd['xkeys']                 = xkeys
-rd['stats']                 = ['pct_err','z_score']
-lib.baseline_histograms.main(rd)
-
-import ipdb; ipdb.set_trace()
+#
+## Baseline daily observations against statistics ###############################
+#rd = {}
+#rd['src_dir']               = data_dir
+#rd['xkeys']                 = xkeys
+#rd['stats']                 = ['pct_err','z_score']
+#lib.baseline_histograms.main(rd)
+#
 # Visualization ################################################################
 ### Visualize Observations
 rd = {}
-rd['srcs']                  = os.path.join(data_dir,'*.data.nc')
+rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
 rd['baseout_dir']           = plot_dir
 rd['sTime']                 = sTime
 rd['eTime']                 = eTime

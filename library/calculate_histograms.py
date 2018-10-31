@@ -74,7 +74,6 @@ def main(run_dct):
     # Loop through dates
     dates   = list(daterange(sDate, eDate))[:-1]
     for dt in tqdm.tqdm(dates):
-#    for dt in dates:
         # Load spots from CSVs
         load_dates = [dt,dt+pd.Timedelta('1D')]
 
@@ -88,9 +87,6 @@ def main(run_dct):
                 dft[xkey]    = ld_inx*24 + dft[xkey]
 
             df  = df.append(dft,ignore_index=True)
-
-#        df         = gl.load_spots_csv(dt.strftime("%Y-%m-%d"),rgc_lim=rgc_lim,
-#                        filter_region=filter_region,filter_region_kind=filter_region_kind)
 
         # Set Up Data Storage Containers
         data_das = {}
@@ -133,7 +129,6 @@ def main(run_dct):
                 # Compute Map
                 time_bins                   = np.array(data_da_result.coords[xkey])
                 map_attrs                   = attrs.copy()
-#                del map_attrs['sTime']
                 del map_attrs['param']
                 map_attrs['xkey']           = 'md_long'
                 map_attrs['xlim']           = (-180,180)
@@ -144,19 +139,18 @@ def main(run_dct):
 
                 map_tmp = []
                 for tb_inx,tb_0 in enumerate(time_bins[:-1]):
-                    tb_1        = time_bins[tb_inx+1]
-                    tf          = np.logical_and(frame[xkey] >= tb_0, frame[xkey] < tb_1)
-                    tb_frame    = frame[tf].copy()
-                    result      = calc_histogram(tb_frame,map_attrs)
+                    tb_1                = time_bins[tb_inx+1]
+                    tf                  = np.logical_and(frame[xkey] >= tb_0, frame[xkey] < tb_1)
+                    tb_frame            = frame[tf].copy()
+                    result              = calc_histogram(tb_frame,map_attrs)
                     result.coords[xkey] = tb_0
                     map_tmp.append(result)
-                map_tmp_da      = xr.concat(map_tmp,dim='sTime')
+                map_tmp_da      = xr.concat(map_tmp,dim=xkey)
                 map_das[xkey].append(map_tmp_da)
 
         # Maps - Concatenate all bands into single DataArray
         for xkey in xkeys:
             map_das[xkey]   = xr.concat(map_das[xkey],dim='freq_MHz')
-            aa  = map_das[xkey]
 
         map_dss = OrderedDict()
         for xkey in xkeys:

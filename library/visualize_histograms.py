@@ -103,8 +103,12 @@ class ncLoader(object):
 
         dss     = {}
         print(' Loading files...')
-        for nc in self.fnames:
-            print(' --> {!s}'.format(nc))
+        for nc_bz2 in self.fnames:
+            print(' --> {!s}'.format(nc_bz2))
+            mbz2    = gl.MyBz2(nc_bz2)
+            mbz2.uncompress()
+
+            nc      = mbz2.unc_name
             # Identify Groups in netCDF File
             with netCDF4.Dataset(nc) as nc_fl:
                 groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
@@ -127,23 +131,37 @@ class ncLoader(object):
                     ds.coords[group]        = time_vec
                     ds.coords['ut_sTime']   = [self.sTime]
 
-                    if group not in dss[prefix]:
-                        dss[prefix][group]  = []
-                    dss[prefix][group].append(ds)
+                    if prefix == 'map':
+                        dt_vec      = np.array([dt_0 + pd.Timedelta(hours=x) for x in hrs])
+                        tf          = np.logical_and(dt_vec >= self.sTime, dt_vec < self.eTime)
+                        tmp_map_ds  = ds[{group:tf}].sum(group)
 
+                        map_ds      = dss[prefix].get(group)
+                        if map_ds is None:
+                            map_ds  = tmp_map_ds
+                        else:
+                            map_ds  += tmp_map_ds
+                        dss[prefix][group]  = map_ds
+                    else:
+                        if group not in dss[prefix]:
+                            dss[prefix][group]  = []
+                        dss[prefix][group].append(ds)
+            mbz2.remove()
+
+        # Concatenate Time Series Data
         xlim        = (0, (self.eTime-self.sTime).total_seconds()/3600.)
         print(' Concatenating data...')
-        for prefix,xdct in dss.items():
-            for group,ds_list in xdct.items():
-                ds          = xr.concat(ds_list,group)
-                for data_var in ds.data_vars:
-                    print(prefix,group,data_var)
-                    attrs   = ds[data_var].attrs
-                    attrs.update({'xlim':str(xlim)})
-                    ds[data_var].attrs = attrs
-                dss[prefix][group]  = ds
+        prefix  = 'time_series'
+        xdct    = dss[prefix]
+        for group,ds_list in xdct.items():
+            ds          = xr.concat(ds_list,group)
+            for data_var in ds.data_vars:
+                print(prefix,group,data_var)
+                attrs   = ds[data_var].attrs
+                attrs.update({'xlim':str(xlim)})
+                ds[data_var].attrs = attrs
+            dss[prefix][group]  = ds
 
-        import ipdb; ipdb.set_trace()
         self.datasets   = dss
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,

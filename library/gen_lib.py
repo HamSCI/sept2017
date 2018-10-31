@@ -546,11 +546,11 @@ class MyBz2(object):
             self.unc_name   = fname
 
     def compress(self):
-        cmd = 'bzip2 {!s}'.format(self.unc_name)
+        cmd = 'bzip2 -f {!s}'.format(self.unc_name)
         os.system(cmd)
 
     def uncompress(self):
-        cmd = 'bunzip2 -k {!s}'.format(self.bz2_name)
+        cmd = 'bunzip2 -kf {!s}'.format(self.bz2_name)
         os.system(cmd)
 
     def remove(self):
