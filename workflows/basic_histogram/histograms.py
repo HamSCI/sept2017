@@ -30,7 +30,7 @@ geo_env     = lib.GeospaceEnv()
 #rd['output_dir']            = data_dir
 #rd['band_obj']              = lib.gl.BandData()
 #lib.calculate_histograms.main(rd)
-#
+
 ## Calculate Statistics from Histograms #########################################
 #rd = {}
 #rd['src_dir']               = data_dir
@@ -45,23 +45,22 @@ geo_env     = lib.GeospaceEnv()
 #rd['xkeys']                 = xkeys
 #rd['stats']                 = ['pct_err','z_score']
 #lib.baseline_histograms.main(rd)
-#
-# Visualization ################################################################
-### Visualize Observations
-rd = {}
-rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
-rd['baseout_dir']           = plot_dir
-rd['sTime']                 = sTime
-rd['eTime']                 = eTime
-rd['geospace_env']          = geo_env
-lib.visualize_histograms.main(rd)
-import ipdb; ipdb.set_trace()
-lib.visualize_histograms.plot_dailies(rd)
 
-### Visualize Baselines
-rd['srcs']                  = os.path.join(data_dir,'*.baseline_compare.nc')
-lib.visualize_histograms.main(rd)
-lib.visualize_histograms.plot_dailies(rd)
+## Visualization ################################################################
+#### Visualize Observations
+#rd = {}
+#rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
+#rd['baseout_dir']           = plot_dir
+#rd['sTime']                 = sTime
+#rd['eTime']                 = eTime
+#rd['geospace_env']          = geo_env
+#lib.visualize_histograms.main(rd)
+#lib.visualize_histograms.plot_dailies(rd)
+#
+#### Visualize Baselines
+#rd['srcs']                  = os.path.join(data_dir,'*.baseline_compare.nc.bz2')
+#lib.visualize_histograms.main(rd)
+#lib.visualize_histograms.plot_dailies(rd)
 
 ### Visualize Statistics
 rd = {}

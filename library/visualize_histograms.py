@@ -134,13 +134,15 @@ class ncLoader(object):
                     if prefix == 'map':
                         dt_vec      = np.array([dt_0 + pd.Timedelta(hours=x) for x in hrs])
                         tf          = np.logical_and(dt_vec >= self.sTime, dt_vec < self.eTime)
-                        tmp_map_ds  = ds[{group:tf}].sum(group)
+                        tmp_map_ds  = ds[{group:tf}].sum(group,keep_attrs=True)
 
                         map_ds      = dss[prefix].get(group)
                         if map_ds is None:
-                            map_ds  = tmp_map_ds
+                            map_ds      = tmp_map_ds
                         else:
-                            map_ds  += tmp_map_ds
+                            map_attrs = map_ds['spot_density'].attrs
+                            map_ds += tmp_map_ds
+                            map_ds['spot_density'].attrs = map_attrs
                         dss[prefix][group]  = map_ds
                     else:
                         if group not in dss[prefix]:
@@ -172,10 +174,12 @@ class ncLoader(object):
         if geospace_env is None:
             geospace_env    = GeospaceEnv()
 
-        map_da  = self.maps['spot_density']
+#        map_da  = self.maps['spot_density']
         xlim_in = xlim
 
-        for group,ds in self.datasets.items():
+        for group,ds in self.datasets['time_series'].items():
+            map_da  = self.datasets['map'][group]['spot_density']
+
             outdir  = os.path.join(baseout_dir,group)
             if subdir is not None:
                 outdir = os.path.join(outdir,subdir)
@@ -308,7 +312,7 @@ class ncLoader(object):
                 eTime_str   = self.eTime.strftime('%Y%m%d.%H%MUT')
                 date_str    = '-'.join([sTime_str,eTime_str])
 
-                fname   = '.'.join([date_str,self.basename,group,data_var,'png'])
+                fname   = '.'.join([date_str,self.basename,group,data_var,'png']).replace('.bz2','')
                 fpath   = os.path.join(outdir,fname)
                 fig.savefig(fpath,bbox_inches='tight')
                 print('--> {!s}'.format(fpath))
