@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import glob
 import datetime
@@ -14,9 +13,10 @@ import tqdm
 from . import gen_lib as gl
 
 class KeyParamStore(object):
-    def __init__(self,xkeys,params):
+    def __init__(self,xkeys,params,prefix):
         self.xkeys      = xkeys
         self.params     = params
+        self.prefix     = prefix
         self.data_das   = self._create_dict(xkeys,params)
 
     def _create_dict(self,xkeys,params):
@@ -29,7 +29,7 @@ class KeyParamStore(object):
 
     def load_nc(self,nc):
         for xkey in self.xkeys:
-            group   = '/{!s}'.format(xkey)
+            group   = '{!s}/{!s}'.format(self.prefix,xkey)
             for param in self.params:
                 with xr.open_dataset(nc,group=group) as fl:
                     ds = fl.load()
@@ -73,7 +73,7 @@ class KeyParamStore(object):
             else:
                 mode = 'w'
 
-            group = '/{!s}'.format(xkey)
+            group = '{!s}/{!s}'.format(self.prefix,xkey)
             stats_ds.to_netcdf(nc_path,mode=mode,group=group)
 
 def main(run_dct):
@@ -83,8 +83,8 @@ def main(run_dct):
     stats   = run_dct['stats']
 
     # Set Up Data Storage Containers
-    mps = KeyParamStore(['map'],['spot_density'])
-    kps = KeyParamStore(xkeys,params)
+    mps = KeyParamStore(xkeys,['spot_density'],'map')
+    kps = KeyParamStore(xkeys,params,'time_series')
 
     ncs = glob.glob(os.path.join(src_dir,'*.data.nc'))
     ncs.sort()
@@ -107,17 +107,4 @@ def main(run_dct):
     mps.stats_to_nc(stats_nc)
     kps.stats_to_nc(stats_nc)
 
-    print('Done!!')
-
-if __name__ == '__main__':
-    run_dcts = []
-
-    rd = {}
-    rd['src_dir']   = 'data/histograms/active'
-    rd['params']    = ['spot_density']
-    rd['xkeys']     = ['ut_hrs','slt_mid']
-    rd['stats']     = ['sum','mean','median','std']
-    run_dcts.append(rd)
-
-    for rd in run_dcts:
-        main(rd)
+    print('Done computing statistics!!')

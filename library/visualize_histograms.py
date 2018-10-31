@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import glob
 import datetime
@@ -25,22 +24,6 @@ from .timeutils import daterange
 from .geospace_env import GeospaceEnv
 
 pdict   = {}
-
-#dct = {}
-#dct['log_z']    = False
-#pdict['mean']   = dct
-#
-#dct = {}
-#dct['log_z']    = False
-#pdict['median'] = dct
-#
-#dct = {}
-#dct['log_z']   = False
-#pdict['std']   = dct
-#
-#dct = {}
-#dct['log_z']   = False
-#pdict['sum']   = dct
 
 dct = {}
 dct['log_z']        = False
@@ -110,6 +93,7 @@ class ncLoader(object):
         return fnames
             
     def _load_ncs(self):
+        prefixes    = ['map','time_series']
 
         # Return None if no data to load.
         if self.fnames == []:
@@ -117,22 +101,22 @@ class ncLoader(object):
             self.datasets   = None
             return
 
-        dss     = OrderedDict()
-        maps    = []
-
+        dss     = {}
         for nc in self.fnames:
             # Identify Groups in netCDF File
             with netCDF4.Dataset(nc) as nc_fl:
-                groups  = [group for group in nc_fl.groups.keys()]
+                groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
 
             # Store DataSets (dss) from each group in an OrderedDict()
-            for group in groups:
-                with xr.open_dataset(nc,group=group) as fl:
-                    ds      = fl.load()
+            for prefix in prefixes:
+                if prefix not in dss:
+                    dss[prefix] = OrderedDict()
 
-                if group == 'map':
-                    maps.append(ds)
-                else:
+                for group in groups:
+                    grp = '/'.join([prefix,group])
+                    with xr.open_dataset(nc,group=grp) as fl:
+                        ds      = fl.load()
+
                     # Calculate time vector relative to self.sTime
                     hrs         = np.array(ds.coords[group])
                     dt_0        = pd.Timestamp(np.array(ds['ut_sTime']).tolist())
@@ -141,26 +125,29 @@ class ncLoader(object):
                     ds.coords[group]        = time_vec
                     ds.coords['ut_sTime']   = [self.sTime]
 
-                    if group not in dss:
-                        dss[group]  = []
-                    dss[group].append(ds)
+                    if group not in dss[prefix]:
+                        dss[prefix][group]  = []
+                    dss[prefix][group].append(ds)
 
-        # Concatenate and sum maps
-        maps        = xr.concat(maps,'ut_sTime')
-        maps        = maps.sum('ut_sTime',keep_attrs=True)
-        self.maps   = maps
+#        # Concatenate and sum maps
+#        maps        = xr.concat(maps,'ut_sTime')
+#        maps        = maps.sum('ut_sTime',keep_attrs=True)
+#        self.maps   = maps
 
-        # Concatenate other groups. 
-
+        # Concatenate groups.
         xlim        = (0, (self.eTime-self.sTime).total_seconds()/3600.)
-        for group,ds_list in dss.items():
-            ds          = xr.concat(ds_list,group)
-            for data_var in ds.data_vars:
-                attrs   = ds[data_var].attrs
-                attrs.update({'xlim':str(xlim)})
-                ds[data_var].attrs = attrs
-            dss[group]  = ds
+        for prefix,xdct in dss.items():
+            for group,ds_list in xdct.items():
+                ds          = xr.concat(ds_list,group)
+                for data_var in ds.data_vars:
+                    attrs   = ds[data_var].attrs
+                    attrs.update({'xlim':str(xlim)})
+                    ds[data_var].attrs = attrs
+                    print(prefix,group,data_var)
+                    import ipdb; ipdb.set_trace()
+                dss[prefix][group]  = ds
 
+        import ipdb; ipdb.set_trace()
         self.datasets   = dss
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,
@@ -332,24 +319,3 @@ def plot_dailies(run_dct):
 def main(run_dct):
     nc_obj      = ncLoader(**run_dct)
     nc_obj.plot(**run_dct)
-
-if __name__ == '__main__':
-    baseout_dir = 'output/galleries/histograms'
-
-    run_dcts    = []
-
-    this_dir    = 'active'
-    srcs        = []
-#    srcs.append('data/histograms/{!s}/*.baseline_compare.nc'.format(this_dir))
-    srcs.append('data/histograms/{!s}/*.data.nc'.format(this_dir))
-    
-    for src in srcs:
-        rd = {}
-        rd['srcs']          = src
-        rd['baseout_dir']   = os.path.join(baseout_dir,this_dir)
-        rd['sTime']         = datetime.datetime(2017,9,7)
-        rd['eTime']         = datetime.datetime(2017,9,10)
-        run_dcts.append(rd)
-
-    for rd in run_dcts:
-        main(rd)

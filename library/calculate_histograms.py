@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import datetime
 from collections import OrderedDict
@@ -100,9 +99,10 @@ def main(run_dct):
             for param in params:
                 data_das[xkey][param] = []
 
-        map_hist_das    = []
+        map_das = {}
+        for xkey in xkeys:
+            map_das[xkey] = [] 
 
-        # Cycle through bands
         for band_inx, (band_key,band) in enumerate(band_obj.band_dict.items()):
             frame   = df.loc[df["band"] == band.get('meters')].copy()
 
@@ -116,16 +116,6 @@ def main(run_dct):
             attrs['band_name']          = band['name']
             attrs['band_fname']         = band['freq_name']
 
-            # Compute Map
-            attrs['xkey']               = 'md_long'
-            attrs['xlim']               = (-180,180)
-            attrs['dx']                 = 1
-            attrs['ykey']               = 'md_lat'
-            attrs['ylim']               = (-90,90)
-            attrs['dy']                 = 1
-            result  = calc_histogram(frame,attrs)
-            map_hist_das.append(result)
-
             for xkey in xkeys:
                 for param in params:
                     # Compute General Data
@@ -136,21 +126,49 @@ def main(run_dct):
                     attrs['ykey']               = 'dist_Km'
                     attrs['ylim']               = rgc_lim
                     attrs['dy']                 = yb_size_km
-                    result  = calc_histogram(frame,attrs)
+                    result                      = calc_histogram(frame,attrs)
+                    data_da_result              = result
                     data_das[xkey][param].append(result)
 
-        # Maps - Concatenate all bands into single DataArray
-        map_hist_da     = xr.concat(map_hist_das,dim='freq_MHz')
+                # Compute Map
+                time_bins                   = np.array(data_da_result.coords[xkey])
+                map_attrs                   = attrs.copy()
+#                del map_attrs['sTime']
+                del map_attrs['param']
+                map_attrs['xkey']           = 'md_long'
+                map_attrs['xlim']           = (-180,180)
+                map_attrs['dx']             = 1
+                map_attrs['ykey']           = 'md_lat'
+                map_attrs['ylim']           = (-90,90)
+                map_attrs['dy']             = 1
 
-        map_ds          = xr.Dataset()
-        map_ds['spot_density']  = map_hist_da
-       
+                map_tmp = []
+                for tb_inx,tb_0 in enumerate(time_bins[:-1]):
+                    tb_1        = time_bins[tb_inx+1]
+                    tf          = np.logical_and(frame[xkey] >= tb_0, frame[xkey] < tb_1)
+                    tb_frame    = frame[tf].copy()
+                    result      = calc_histogram(tb_frame,map_attrs)
+                    result.coords[xkey] = tb_0
+                    map_tmp.append(result)
+                map_tmp_da      = xr.concat(map_tmp,dim='sTime')
+                map_das[xkey].append(map_tmp_da)
+
+        # Maps - Concatenate all bands into single DataArray
+        for xkey in xkeys:
+            map_das[xkey]   = xr.concat(map_das[xkey],dim='freq_MHz')
+            aa  = map_das[xkey]
+
+        map_dss = OrderedDict()
+        for xkey in xkeys:
+            map_ds                  = xr.Dataset()
+            map_ds['spot_density']  = map_das[xkey]
+            map_dss[xkey]           = map_ds
+
         # Time Series - Concatenate all bands into single DataArray
         for xkey in xkeys:
             for param in params:
                 data_das[xkey][param] = xr.concat(data_das[xkey][param],dim='freq_MHz')
 
-        # Data Sets
         data_dss    = OrderedDict()
         for xkey in xkeys:
             data_ds = xr.Dataset()
@@ -161,58 +179,18 @@ def main(run_dct):
         # Save to data file.
         nc_name = dt.strftime('%Y%m%d') + '.data.nc'
         nc_path = os.path.join(ncs_path,nc_name)
-        map_ds.to_netcdf(nc_path,mode='w',group='/map')
+
+        first   = True
+        for xkey,map_ds in map_dss.items():
+            if first:
+                mode    = 'w'
+                first   = False
+            else:
+                mode    = 'a'
+
+            group = 'map/{!s}'.format(xkey)
+            map_ds.to_netcdf(nc_path,mode=mode,group=group)
+
         for xkey,data_ds in data_dss.items():
-            group = '/{!s}'.format(xkey)
+            group = 'time_series/{!s}'.format(xkey)
             data_ds.to_netcdf(nc_path,mode='a',group=group)
-
-if __name__ == "__main__":
-    base_dir  = 'data/histograms'
-    gl.prep_output({0:base_dir},clear=False)
-
-    run_dcts    = []
-
-    rd  = {}
-    rd['sDate']                 = datetime.datetime(2016,1,1)
-    rd['eDate']                 = datetime.datetime(2018,1,1)
-    rd['params']                = ['spot_density']
-    rd['xkeys']                 = ['ut_hrs','slt_mid']
-    rd['rgc_lim']               = (0,10000)
-    rd['filter_region']         = None
-    rd['filter_region_kind']    = 'mids'
-    rd['xb_size_min']           = 30.
-    rd['yb_size_km']            = 500.
-    rd['base_dir']            = base_dir
-    rd['band_obj']              = gl.BandData()
-    run_dcts.append(rd)
-
-#    rd  = {}
-#    rd['sDate']                 = datetime.datetime(2017,9,1)
-#    rd['eDate']                 = datetime.datetime(2017,10,1)
-#    rd['params']                = ['spot_density']
-#    rd['xkeys']                 = ['ut_hrs','slt_mid']
-#    rd['rgc_lim']               = (0,10000)
-#    rd['filter_region']         = 'US'
-#    rd['filter_region_kind']    = 'mids'
-#    rd['xb_size_min']           = 30.
-#    rd['yb_size_km']            = 500.
-#    rd['base_dir']            = base_dir
-#    rd['band_obj']              = gl.BandData()
-#    run_dcts.append(rd)
-
-#    rd  = {}
-#    rd['sDate']                 = datetime.datetime(2017,9,1)
-#    rd['eDate']                 = datetime.datetime(2017,10,1)
-#    rd['params']                = ['spot_density']
-#    rd['xkeys']                 = ['ut_hrs','slt_mid']
-#    rd['rgc_lim']               = (0,10000)
-#    rd['filter_region']         = 'Europe'
-#    rd['filter_region_kind']    = 'mids'
-#    rd['xb_size_min']           = 30.
-#    rd['yb_size_km']            = 500.
-#    rd['base_dir']            = base_dir
-#    rd['band_obj']              = gl.BandData()
-#    run_dcts.append(rd)
-
-    for rd in run_dcts:
-        main(rd)

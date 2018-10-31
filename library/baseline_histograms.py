@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import glob
 import datetime
@@ -15,13 +14,15 @@ import tqdm
 from . import gen_lib as gl
 
 class DataLoader(object):
-    def __init__(self,nc,groups=None):
+    def __init__(self,nc,groups=None,prefix='time_series'):
+        self.prefix = prefix
+
         if groups is None:
             groups  = self.get_groups(nc)
 
         dss   = OrderedDict()
         for group in groups:
-            with xr.open_dataset(nc,group=group) as fl:
+            with xr.open_dataset(nc,group='/'.join([self.prefix,group])) as fl:
                 ds = fl.load()
             dss[group] = ds
 
@@ -31,7 +32,7 @@ class DataLoader(object):
 
     def get_groups(self,nc):
         with netCDF4.Dataset(nc) as nc_fl:
-            groups  = [group for group in nc_fl.groups.keys()]
+            groups  = [group for group in nc_fl.groups[self.prefix].groups.keys()]
         return groups
 
 class CompareBaseline(object):
@@ -45,10 +46,26 @@ class CompareBaseline(object):
             self.calc_statistic(stats,group,params)
 
     def _init_outfile(self):
+        """
+        Create the output netCDF file and initialize by
+        copying over map data.
+        """
         self.nc_out  = self.nc_in[:-8]+'.baseline_compare.nc'
-        with xr.open_dataset(self.nc_in,group='map') as fl:
-            ds  = fl.load()
-        ds.to_netcdf(self.nc_out,mode='w',group='map')
+
+        prefix  = 'map'
+        with netCDF4.Dataset(self.nc_in) as nc_fl:
+            groups  = [group for group in nc_fl.groups[prefix].groups.keys()]
+
+        for grp_inx,group in enumerate(groups):
+            grp = '/'.join([prefix,group])
+            with xr.open_dataset(self.nc_in,group=grp) as fl:
+                ds  = fl.load()
+
+            if grp_inx == 0:
+                mode    = 'w'
+            else:
+                mode    = 'a'
+            ds.to_netcdf(self.nc_out,mode=mode,group=grp)
 
     def calc_statistic(self,stats,group,params=None):
         ds      = self.dl.dss[group]
@@ -74,7 +91,7 @@ class CompareBaseline(object):
                 result.attrs    = attrs
                 name            = pstat(param,stat)
                 ds_out[name]    = result
-        ds_out.to_netcdf(self.nc_out,mode='a',group=group)
+        ds_out.to_netcdf(self.nc_out,mode='a',group='/'.join(['time_series',group]))
 
 def pstat(param,stat):
     return '_'.join([param,stat])
@@ -96,16 +113,3 @@ def main(run_dct):
     for nc in ncs:
         print(nc)
         cmp_obj = CompareBaseline(nc,stats_obj,stats=stats,groups=xkeys,params=params)
-
-if __name__ == '__main__':
-    run_dcts = []
-
-    rd = {}
-    rd['src_dir']   = 'data/histograms/active'
-    rd['xkeys']     = ['ut_hrs','slt_mid']
-    rd['stats']     = ['pct_err','z_score']
-
-    run_dcts.append(rd)
-
-    for rd in run_dcts:
-        main(rd)
