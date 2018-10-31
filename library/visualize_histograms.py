@@ -50,6 +50,28 @@ dct = {}
 dct['log_z']        = False
 pdict['pct_err']    = dct
 
+dct = {}
+dct['log_z']            = False
+pdict['mean_subtract']  = dct
+
+band_dct = OrderedDict()
+dct             = {'label':'28 MHz'}
+band_dct[28]    = dct
+
+dct             = {'label':'21 MHz'}
+band_dct[21]    = dct
+
+dct             = {'label':'14 MHz'}
+band_dct[14]    = dct
+
+dct             = {'label':'7 MHz'}
+band_dct[7]     = dct
+
+dct             = {'label':'3.5 MHz'}
+band_dct[3]     = dct
+
+dct             = {'label':'1.8 MHz'}
+band_dct[1]     = dct
 
 class ncLoader(object):
     def __init__(self,sTime,eTime=None,srcs=None,**kwargs):
@@ -59,6 +81,7 @@ class ncLoader(object):
         self.sTime      = sTime
         self.eTime      = eTime
         self.srcs       = srcs
+        self.kwargs     = kwargs
 
         self._set_basename()
         self._get_fnames()
@@ -205,12 +228,19 @@ class ncLoader(object):
 
                     ax.coastlines(zorder=10,color='w')
                     ax.plot(np.arange(10))
-                    map_data  = map_da.sel(freq_MHz=freq).copy()
-                    tf        = map_data < 1
-                    map_data  = np.log10(map_data)
+                    map_data    = map_da.sel(freq_MHz=freq).copy()
+                    tf          = map_data < 1
+                    map_n       = int(np.sum(map_data))
+                    map_data    = np.log10(map_data)
                     map_data.values[tf] = 0
                     map_data.name   = 'log({})'.format(map_data.name)
                     map_data.plot.contourf(x=map_da.attrs['xkey'],y=map_da.attrs['ykey'],ax=ax,levels=30,cmap=mpl.cm.inferno)
+                    ax.set_title('')
+                    lweight = mpl.rcParams['axes.labelweight']
+                    lsize   = mpl.rcParams['axes.labelsize']
+                    fdict   = {'weight':lweight,'size':lsize}
+                    ax.text(0.5,-0.1,'Radio Spots (N = {!s})'.format(map_n),
+                            ha='center',transform=ax.transAxes,fontdict=fdict)
                     
                     ax = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
                     data    = data_da.sel(freq_MHz=freq).copy()
@@ -220,11 +250,53 @@ class ncLoader(object):
                         data.values[tf] = 0
                         data.name   = 'log({})'.format(data.name)
 
-                    result  = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30)
+                    robust_dict = self.kwargs.get('robust_dict',{})
+                    robust      = robust_dict.get(freq,True)
+                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust)
+
+                    for tl in ax.get_xticklabels():
+                        tl.set_rotation(10)
+                    
+                    xlbl    = ax.get_xlabel()
+                    if xlbl == 'ut_hrs':
+                        ax.set_xlabel('Date Time [UT]')
+
+                    ylbl    = ax.get_ylabel()
+                    if ylbl == 'dist_Km':
+                        ax.set_ylabel('$R_{gc}$ [km]')
+
+                    ax.set_title('')
+
+                    bdct    = band_dct.get(freq,{})
+                    label   = bdct.get('label','{!s} MHz'.format(freq))
+
+                    ax.text(-0.11,0.5,label,transform=ax.transAxes,va='center',
+                            rotation=90,fontdict={'weight':'bold','size':30})
 
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
                     hist_ax = ax
+
+                ########################################
+                xpos        = 0.050
+                ypos        = 0.950
+                fdict       = {'size':32,'weight':'bold'}
+                date_str_0  = self.sTime.strftime('%d %b %Y')
+                date_str_1  = self.eTime.strftime('%d %b %Y')
+
+                if self.eTime-self.sTime < datetime.timedelta(hours=24):
+                    title   = date_str_0
+                else:
+                    title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
+                fig.text(xpos,ypos,title,fontdict=fdict)
+
+#                srcs    = '\n'.join([' '+x for x in gl.list_sources(df,bands=meters)])
+                srcs    = ''
+                txt     = 'Ham Radio Networks\n' + srcs
+                fdict   = {'size':30,'weight':'bold'}
+                ########################################
+
+                fig.text(xpos,ypos-0.040,txt,fontdict=fdict)
 
                 fig.tight_layout()
 

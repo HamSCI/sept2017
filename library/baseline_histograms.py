@@ -66,6 +66,8 @@ class CompareBaseline(object):
                     result          = (da - mean)/mean
                 elif stat == 'z_score':
                     result          = (da - mean)/std
+                elif stat == 'mean_subtract':
+                    result          = da - mean
 
                 attrs           = da.attrs.copy()
                 attrs['stat']   = stat

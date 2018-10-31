@@ -27,6 +27,4 @@ rd['symh_min']              = -25
 rd['symh_max']              =  25
 rd['kp_min']                = None
 rd['kp_max']                = 3
-rd['goes_min']              = -25
-rd['goes_max']              =  25
 lib.select_histograms.main(rd)

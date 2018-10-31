@@ -26,13 +26,13 @@ class HistogramSelector(object):
         self.geospace_env   = geospace_env
 
         self.gen_filetable()
+        self.select_dates()
         self.select_symh()
         self.select_kp()
         self.apply_selection()
         self.create_links()
         self.write_reports()
         self.plot_summary()
-        import ipdb; ipdb.set_trace()
 
     def gen_filetable(self):
         """
@@ -191,9 +191,12 @@ class HistogramSelector(object):
 
             title   = []
             title.append(fpath)
-            dt_str0 = ft.index.min().strftime('%d %b %Y')
-            dt_str1 = ft.index.max().strftime('%d %b %Y')
-            dt_str  = '{!s} - {!s}'.format(dt_str0,dt_str1)
+            if len(ft) > 0:
+                dt_str0 = ft.index.min().strftime('%d %b %Y')
+                dt_str1 = ft.index.max().strftime('%d %b %Y')
+                dt_str  = '{!s} - {!s}'.format(dt_str0,dt_str1)
+            else:
+                dt_str  = 'no_events'
             n_str   = 'N = {!s}'.format(len(ft))
             line    = '{!s} ({!s})'.format(n_str,dt_str)
             title.append(line)
@@ -201,6 +204,27 @@ class HistogramSelector(object):
 
             fig.savefig(fpath,bbox_inches='tight')
             plt.close(fig)
+
+    def select_dates(self):
+        """
+        Drop dates based on range from filetable.
+        Don't put on reject list, because we only want days on to
+        be on that list for geophysical reasons.
+        """
+        sTime       = self.run_dct.get('sTime')
+        eTime       = self.run_dct.get('eTime')
+        ft          = self.filetable
+        ft_raw  = ft.copy()
+
+        if sTime is not None:
+            sDate   = datetime.datetime(sTime.year,sTime.month,sTime.day)
+            ft      = ft[ft.index >= sDate].copy()
+
+        if eTime is not None:
+            eDate   = datetime.datetime(eTime.year,eTime.month,eTime.day)
+            ft      = ft[ft.index < eDate].copy()
+        
+        self.filetable  = ft
 
     def select_symh(self,symh_min=None,symh_max=None,**kwargs):
         symh_min    = self.run_dct.get('symh_min')
