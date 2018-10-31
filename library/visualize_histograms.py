@@ -102,7 +102,9 @@ class ncLoader(object):
             return
 
         dss     = {}
+        print(' Loading files...')
         for nc in self.fnames:
+            print(' --> {!s}'.format(nc))
             # Identify Groups in netCDF File
             with netCDF4.Dataset(nc) as nc_fl:
                 groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
@@ -129,22 +131,16 @@ class ncLoader(object):
                         dss[prefix][group]  = []
                     dss[prefix][group].append(ds)
 
-#        # Concatenate and sum maps
-#        maps        = xr.concat(maps,'ut_sTime')
-#        maps        = maps.sum('ut_sTime',keep_attrs=True)
-#        self.maps   = maps
-
-        # Concatenate groups.
         xlim        = (0, (self.eTime-self.sTime).total_seconds()/3600.)
+        print(' Concatenating data...')
         for prefix,xdct in dss.items():
             for group,ds_list in xdct.items():
                 ds          = xr.concat(ds_list,group)
                 for data_var in ds.data_vars:
+                    print(prefix,group,data_var)
                     attrs   = ds[data_var].attrs
                     attrs.update({'xlim':str(xlim)})
                     ds[data_var].attrs = attrs
-                    print(prefix,group,data_var)
-                    import ipdb; ipdb.set_trace()
                 dss[prefix][group]  = ds
 
         import ipdb; ipdb.set_trace()
@@ -317,5 +313,6 @@ def plot_dailies(run_dct):
         nc_obj.plot(**rd)
 
 def main(run_dct):
+    print('Starting main plotting routine...')
     nc_obj      = ncLoader(**run_dct)
     nc_obj.plot(**run_dct)
