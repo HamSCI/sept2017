@@ -38,14 +38,15 @@ geo_env     = lib.GeospaceEnv()
 #rd['xkeys']                 = xkeys
 #rd['stats']                 = ['sum','mean','median','std']
 #lib.statistics_histograms.main(rd)
-#
-## Baseline daily observations against statistics ###############################
-#rd = {}
-#rd['src_dir']               = data_dir
-#rd['xkeys']                 = xkeys
-#rd['stats']                 = ['pct_err','z_score']
-#lib.baseline_histograms.main(rd)
 
+# Baseline daily observations against statistics ###############################
+rd = {}
+rd['src_dir']               = data_dir
+rd['xkeys']                 = xkeys
+rd['stats']                 = ['pct_err','z_score']
+lib.baseline_histograms.main(rd)
+
+import ipdb; ipdb.set_trace()
 # Visualization ################################################################
 ### Visualize Observations
 rd = {}

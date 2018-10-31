@@ -535,3 +535,24 @@ def calc_solar_zenith_region(sTime,eTime,region='World'):
     sza = pd.DataFrame({'els':els},index=sza_dts)
 
     return (sza,sza_lat,sza_lon)
+
+class MyBz2(object):
+    def __init__(self,fname):
+        if fname[-4:] == '.bz2':
+            self.bz2_name   = fname
+            self.unc_name   = fname[:-4]
+        else:
+            self.bz2_name   = fname + '.bz2'
+            self.unc_name   = fname
+
+    def compress(self):
+        cmd = 'bzip2 {!s}'.format(self.unc_name)
+        os.system(cmd)
+
+    def uncompress(self):
+        cmd = 'bunzip2 -k {!s}'.format(self.bz2_name)
+        os.system(cmd)
+
+    def remove(self):
+        cmd = 'rm {!s}'.format(self.unc_name)
+        os.system(cmd)

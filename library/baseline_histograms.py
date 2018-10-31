@@ -104,12 +104,21 @@ def main(run_dct):
     stats_nc    = run_dct.get('stats_nc')
 
     if stats_nc is None:
-        stats_nc    = os.path.join(src_dir,'stats.nc')
-    stats_obj   = DataLoader(stats_nc)
+        stats_nc    = os.path.join(src_dir,'stats.nc.bz2')
+    mbz2        = gl.MyBz2(stats_nc)
+    mbz2.uncompress()
+    stats_obj   = DataLoader(mbz2.unc_name)
+    mbz2.remove()
 
-    ncs = glob.glob(os.path.join(src_dir,'*.data.nc'))
+    ncs = glob.glob(os.path.join(src_dir,'*.data.nc.bz2'))
     ncs.sort()
 
     for nc in ncs:
         print(nc)
-        cmp_obj = CompareBaseline(nc,stats_obj,stats=stats,groups=xkeys,params=params)
+        mbz2    = gl.MyBz2(nc)
+        mbz2.uncompress()
+        cmp_obj = CompareBaseline(mbz2.unc_name,stats_obj,stats=stats,groups=xkeys,params=params)
+        mbz2.remove()
+
+        mbz2    = gl.MyBz2(cmp_obj.nc_out)
+        mbz2.compress()

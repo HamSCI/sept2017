@@ -28,12 +28,15 @@ class KeyParamStore(object):
         return data_das
 
     def load_nc(self,nc):
+        mbz2    = gl.MyBz2(nc)
+        mbz2.uncompress()
         for xkey in self.xkeys:
             group   = '{!s}/{!s}'.format(self.prefix,xkey)
             for param in self.params:
-                with xr.open_dataset(nc,group=group) as fl:
+                with xr.open_dataset(mbz2.unc_name,group=group) as fl:
                     ds = fl.load()
                 self.data_das[xkey][param].append(ds[param])
+        mbz2.remove()
         return self.data_das
 
     def concat(self,dim='ut_sTime'):
@@ -86,7 +89,7 @@ def main(run_dct):
     mps = KeyParamStore(xkeys,['spot_density'],'map')
     kps = KeyParamStore(xkeys,params,'time_series')
 
-    ncs = glob.glob(os.path.join(src_dir,'*.data.nc'))
+    ncs = glob.glob(os.path.join(src_dir,'*.data.nc.bz2'))
     ncs.sort()
 
     for nc in ncs:
@@ -101,10 +104,13 @@ def main(run_dct):
     kps.compute_stats(stats)
 
     stats_nc    = os.path.join(src_dir,'stats.nc')
-    if os.path.exists(stats_nc):
-        os.remove(stats_nc)
+    if os.path.exists(stats_nc+'.bz2'):
+        os.remove(stats_nc+'.bz2')
 
     mps.stats_to_nc(stats_nc)
     kps.stats_to_nc(stats_nc)
+
+    mbz2    = gl.MyBz2(stats_nc)
+    mbz2.compress()
 
     print('Done computing statistics!!')

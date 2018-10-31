@@ -194,3 +194,6 @@ def main(run_dct):
         for xkey,data_ds in data_dss.items():
             group = 'time_series/{!s}'.format(xkey)
             data_ds.to_netcdf(nc_path,mode='a',group=group)
+        
+        mbz2    = gl.MyBz2(nc_path)
+        mbz2.compress()
