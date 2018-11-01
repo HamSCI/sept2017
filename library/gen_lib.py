@@ -507,6 +507,24 @@ def list_sources(df,count=True,bands=None):
         names.append(name)
     return names
 
+def count_sources(df,bands=None):
+    """
+    Like list sources, but returns a dict.
+    """
+    srcs    = df.source.unique()
+    srcs.sort()
+
+    if bands is not None:
+        tf  = df['band'].apply(lambda x: x in bands)
+        df  = df[tf].copy()
+
+    cnt_dct = {}
+    for src in srcs:
+        name    = sources[src].get('name')
+        cnt     = np.sum(df.source==src)
+        cnt_dct[name] = cnt
+    return cnt_dct
+
 def sunAzEl(dates,lat,lon):
     azs, els = [], []
     for date in dates:

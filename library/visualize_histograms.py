@@ -1,15 +1,12 @@
 import os
 import glob
 import datetime
-import dateutil
 from collections import OrderedDict
 import ast
 
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.collections import PolyCollection
 import cartopy.crs as ccrs
 
 import numpy as np
@@ -56,6 +53,53 @@ band_dct[3]     = dct
 dct             = {'label':'1.8 MHz'}
 band_dct[1]     = dct
 
+class SrcCounts(object):
+    def __init__(self,xdct):
+        """
+        Calculate percentages of data sources.
+        xdct: dictionary of datasets that have src_cnt attributes.
+        """
+        src_cnts    = {}
+        # Add up the sources for each day.
+        for group,ds_list in xdct.items():
+            if group not in src_cnts:
+                src_cnts[group] = {}
+            for ds in ds_list:
+                for data_var in ds.data_vars:
+                    src_cnt = pd.read_json(ds[data_var].attrs.get('src_cnt'))
+                    if data_var not in src_cnts[group]:
+                        src_cnts[group][data_var] = src_cnt
+                    else:
+                        src_cnts[group][data_var] += src_cnt
+
+        # Compute percentages.
+        for group,ds_list in xdct.items():
+            for data_var in ds.data_vars:
+                sc          = src_cnts[group][data_var]
+                sc['sum']   = sc.sum(axis=1)
+                sum0        = sc.sum(axis=0)
+                sum0.name   = 'sum'
+                sc          = sc.append(sum0)
+                sc['pct']   = (sc['sum']/sc.loc['sum','sum']) * 100.
+                src_cnts[group][data_var]   = sc
+
+        self.src_cnts   = src_cnts
+
+    def get_text(self,group,data_var):
+        
+        sc      = self.src_cnts[group][data_var]
+        srcs    = list(sc.index)
+        srcs.remove('sum')
+        srcs.sort()
+
+        lines   = []
+        for src in srcs:
+            pct = sc.loc[src,'pct']
+            line    = '   {!s}: {:.0f}%'.format(src,pct)
+            lines.append(line)
+
+        return lines
+
 class ncLoader(object):
     def __init__(self,sTime,eTime=None,srcs=None,**kwargs):
         if eTime is None:
@@ -101,7 +145,7 @@ class ncLoader(object):
             self.datasets   = None
             return
 
-        dss     = {}
+        dss         = {}
         print(' Loading files...')
         for nc_bz2 in self.fnames:
             print(' --> {!s}'.format(nc_bz2))
@@ -148,10 +192,14 @@ class ncLoader(object):
                         if group not in dss[prefix]:
                             dss[prefix][group]  = []
                         dss[prefix][group].append(ds)
+
             mbz2.remove()
 
+        # Process source counts - know what percentage of spots came from what sources.
+        self.src_cnts   = SrcCounts(dss['time_series'])
+
         # Concatenate Time Series Data
-        xlim        = (0, (self.eTime-self.sTime).total_seconds()/3600.)
+        xlim    = (0, (self.eTime-self.sTime).total_seconds()/3600.)
         print(' Concatenating data...')
         prefix  = 'time_series'
         xdct    = dss[prefix]
@@ -174,7 +222,6 @@ class ncLoader(object):
         if geospace_env is None:
             geospace_env    = GeospaceEnv()
 
-#        map_da  = self.maps['spot_density']
         xlim_in = xlim
 
         for group,ds in self.datasets['time_series'].items():
@@ -226,7 +273,8 @@ class ncLoader(object):
                 omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
                                     kp_markersize=10,dst_lw=2,dst_param='SYM-H')
                 axs_to_adjust   += omni_axs
-
+                
+                map_sum         = 0
                 for inx,freq in enumerate(freqs):
                     plt_row = inx+1
                     ax = plt.subplot2grid((ny,nx),(plt_row,0),projection=ccrs.PlateCarree(),colspan=30)
@@ -236,6 +284,7 @@ class ncLoader(object):
                     map_data    = map_da.sel(freq_MHz=freq).copy()
                     tf          = map_data < 1
                     map_n       = int(np.sum(map_data))
+                    map_sum     += map_n
                     map_data    = np.log10(map_data)
                     map_data.values[tf] = 0
                     map_data.name   = 'log({})'.format(map_data.name)
@@ -247,8 +296,9 @@ class ncLoader(object):
                     ax.text(0.5,-0.1,'Radio Spots (N = {!s})'.format(map_n),
                             ha='center',transform=ax.transAxes,fontdict=fdict)
                     
-                    ax = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
+                    ax      = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
                     data    = data_da.sel(freq_MHz=freq).copy()
+
                     if log_z:
                         tf          = data < 1.
                         data        = np.log10(data)
@@ -282,7 +332,7 @@ class ncLoader(object):
                     ax.set_ylim(ylim)
                     hist_ax = ax
 
-                ########################################
+                # Place Information in Upper Left Corner of Figure
                 xpos        = 0.050
                 ypos        = 0.950
                 fdict       = {'size':32,'weight':'bold'}
@@ -295,13 +345,15 @@ class ncLoader(object):
                     title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
                 fig.text(xpos,ypos,title,fontdict=fdict)
 
-#                srcs    = '\n'.join([' '+x for x in gl.list_sources(df,bands=meters)])
-                srcs    = ''
-                txt     = 'Ham Radio Networks\n' + srcs
+                lines   = []
+                l       = lines.append
+                l('Ham Radio Networks')
+                l('N Spots = {!s}'.format(map_sum))
+                lines   += self.src_cnts.get_text(group,data_var)
+                txt     = '\n'.join(lines)
                 fdict   = {'size':30,'weight':'bold'}
-                ########################################
-
-                fig.text(xpos,ypos-0.040,txt,fontdict=fdict)
+                fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
+                ######################################## 
 
                 fig.tight_layout()
 

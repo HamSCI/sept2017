@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import json
+
 import tqdm
 
 from .timeutils import daterange
@@ -99,6 +101,14 @@ def main(run_dct):
         for xkey in xkeys:
             map_das[xkey] = [] 
 
+        src_cnts    = {}
+        for xkey in xkeys:
+            if xkey not in src_cnts:
+                src_cnts[xkey] = {}
+            for band_inx, (band_key,band) in enumerate(band_obj.band_dict.items()):
+                if band_key not in src_cnts[xkey]:
+                    src_cnts[xkey][band_key]    = {}
+
         for band_inx, (band_key,band) in enumerate(band_obj.band_dict.items()):
             frame   = df.loc[df["band"] == band.get('meters')].copy()
 
@@ -113,6 +123,7 @@ def main(run_dct):
             attrs['band_fname']         = band['freq_name']
 
             for xkey in xkeys:
+                src_cnts[xkey][band_key]    = gl.count_sources(frame)
                 for param in params:
                     # Compute General Data
                     attrs['xkey']               = xkey
@@ -161,13 +172,16 @@ def main(run_dct):
         # Time Series - Concatenate all bands into single DataArray
         for xkey in xkeys:
             for param in params:
-                data_das[xkey][param] = xr.concat(data_das[xkey][param],dim='freq_MHz')
+                data_da = data_das[xkey][param] = xr.concat(data_das[xkey][param],dim='freq_MHz')
 
         data_dss    = OrderedDict()
         for xkey in xkeys:
             data_ds = xr.Dataset()
             for param in params:
-                data_ds[param] = data_das[xkey][param]
+                d_ds                    = data_das[xkey][param] 
+                src_cnt                 = src_cnts[xkey]
+                d_ds.attrs['src_cnt']   = pd.DataFrame(src_cnt).to_json()
+                data_ds[param]          = d_ds 
             data_dss[xkey] = data_ds
 
         # Save to data file.
