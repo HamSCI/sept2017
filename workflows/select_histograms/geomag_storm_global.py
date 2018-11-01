@@ -13,8 +13,12 @@ geo_env     = lib.GeospaceEnv()
 
 class HamDataSet(object):
     def __init__(self,run_dct={}):
-        run_dct['params']   = run_dct.get('params',['spot_density'])
-        run_dct['xkeys']    = run_dct.get('xkeys', ['ut_hrs','slt_mid'])
+        run_dct['params']               = run_dct.get('params',['spot_density'])
+        run_dct['xkeys']                = run_dct.get('xkeys', ['ut_hrs','slt_mid'])
+
+        run_dct['xb_size_min']          = run_dct.get('xb_size_min',  30.)
+        run_dct['yb_size_km']           = run_dct.get('yb_size_km',  500.)
+        run_dct['filter_region_kind']   = run_dct.get('filter_region_kind', 'mids')
         self.rd = run_dct
 
     def create(self):
@@ -23,15 +27,18 @@ class HamDataSet(object):
         rd['sDate']                 = self.rd.get('sTime')
         rd['eDate']                 = self.rd.get('eTime')
         rd['params']                = self.rd.get('params')
-        rd['xkeys']                 = xkeys
-        rd['rgc_lim']               = (0,10000)
-        rd['filter_region']         = None
-        rd['filter_region_kind']    = 'mids'
-        rd['xb_size_min']           = 30.
-        rd['yb_size_km']            = 500.
-        rd['output_dir']            = self.rd.get('data_dir_0')
+        rd['xkeys']                 = self.rd.get('xkeys')
+        rd['rgc_lim']               = self.rd.get('rgc_lim')
+        rd['filter_region']         = self.rd.get('filter_region')
+        rd['filter_region_kind']    = self.rd.get('filter_region_kind')
+        rd['xb_size_min']           = self.rd.get('xb_size_min')
+        rd['yb_size_km']            = self.rd.get('yb_size_km')
+        rd['base_dir']              = self.rd.get('base_dir')
+        rd['reprocess']             = self.rd.get('reprocess')
         rd['band_obj']              = lib.gl.BandData()
-        lib.calculate_histograms.main(rd)
+        data_dir_0                  = lib.calculate_histograms.main(rd)
+
+        self.rd['data_dir_0']       = data_dir_0
 
     def select(self):
         # Create histogram NetCDF Files ################################################
@@ -68,23 +75,23 @@ class HamDataSet(object):
         # Visualization ################################################################
         ### Visualize Observations
         rd = {}
-        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.data.nc')
+        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.data.nc.bz2')
         rd['baseout_dir']           = self.rd.get('plot_dir')
         rd['sTime']                 = self.rd.get('sTime')
         rd['eTime']                 = self.rd.get('eTime')
         rd['geospace_env']          = self.rd.get('geo_env')
         lib.visualize_histograms.main(rd)
-#        lib.visualize_histograms.plot_dailies(rd)
+        lib.visualize_histograms.plot_dailies(rd)
 
         ### Visualize Baselines
-        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.baseline_compare.nc')
+        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.baseline_compare.nc.bz2')
         rd['robust_dict']           = {1:False}
         lib.visualize_histograms.main(rd)
-#        lib.visualize_histograms.plot_dailies(rd)
+        lib.visualize_histograms.plot_dailies(rd)
 
         ### Visualize Statistics
         rd = {}
-        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'stats.nc')
+        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'stats.nc.bz2')
         rd['baseout_dir']           = self.rd.get('plot_dir')
         lib.visualize_histograms_simple.main(rd)
 
@@ -93,7 +100,7 @@ class HamDataSet(object):
         fnames  = []
         fnames.append('filetable.png')
         fnames.append('filetable.csv')
-        fnames.append('stats.nc')
+        fnames.append('stats.nc.bz2')
 
         results = []
         for fname in fnames:
@@ -125,27 +132,35 @@ class HamDataSet(object):
 if __name__ == '__main__':
 
     run_name    = 'quiet_baseline_global'
-    rd  = {}
-    rd['data_dir_0'] = 'data/histograms/0-10000km_dx30min_dy500km'
-    rd['data_dir']   = os.path.join('data/histograms',run_name)
-    rd['plot_dir']   = os.path.join('output/galleries/histograms',run_name)
-    rd['sTime']      = datetime.datetime(2016,1,1)
-    rd['eTime']      = datetime.datetime(2018,1,1)
+    base_dir    = 'data/histograms'
+    data_dir_0  = 'data/histograms/0-10000km_dx30min_dy500km'
 
-    rd['symh_min']   = -25
-    rd['symh_max']   =  25
-    rd['kp_min']     = None
-    rd['kp_max']     =   3
+    rd  = {}
+    rd['base_dir']      = base_dir
+    rd['data_dir']      = os.path.join(base_dir,run_name)
+    rd['plot_dir']      = os.path.join('output/galleries/histograms',run_name)
+    rd['sTime']         = datetime.datetime(2016,1,1)
+    rd['eTime']         = datetime.datetime(2018,1,1)
+    rd['rgc_lim']       = (0,10000)
+    rd['filter_region'] = None
+
+    rd['reprocess']     = False
+
+    rd['symh_min']      = -25
+    rd['symh_max']      =  25
+    rd['kp_min']        = None
+    rd['kp_max']        =   3
 
     baseline = HamDataSet(rd)
-#    baseline.select()
-#    baseline.stats()
-#    baseline.visualize()
+    baseline.create()
+    baseline.select()
+    baseline.stats()
+    baseline.visualize()
 
     run_name    = 'geomag_storm_global'
     rd  = {}
-    rd['data_dir_0'] = 'data/histograms/0-10000km_dx30min_dy500km'
-    rd['data_dir']   = os.path.join('data/histograms',run_name)
+    rd['data_dir_0'] = baseline.rd.get('data_dir_0')
+    rd['data_dir']   = os.path.join(base_dir,run_name)
     rd['plot_dir']   = os.path.join('output/galleries/histograms',run_name)
     rd['sTime']      = datetime.datetime(2017,9,7)
     rd['eTime']      = datetime.datetime(2017,9,14)

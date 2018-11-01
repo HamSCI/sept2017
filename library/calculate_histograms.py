@@ -57,6 +57,7 @@ def main(run_dct):
     yb_size_km          = run_dct['yb_size_km']
     base_dir            = run_dct.get('base_dir')
     output_dir          = run_dct.get('output_dir')
+    reprocess           = run_dct.get('reprocess',False)
 
     # Define path for saving NetCDF Files
     if output_dir is None:
@@ -71,11 +72,18 @@ def main(run_dct):
     else:
         ncs_path = output_dir
 
-    gl.prep_output({0:ncs_path},clear=False)
+    gl.prep_output({0:ncs_path},clear=reprocess)
 
     # Loop through dates
     dates   = list(daterange(sDate, eDate))[:-1]
     for dt in tqdm.tqdm(dates):
+        nc_name = dt.strftime('%Y%m%d') + '.data.nc'
+        nc_path = os.path.join(ncs_path,nc_name)
+
+        # Skip processing if file already exists
+        if os.path.exists(nc_path+'.bz2'):
+            continue
+
         # Load spots from CSVs
         load_dates = [dt,dt+pd.Timedelta('1D')]
 
@@ -85,6 +93,9 @@ def main(run_dct):
             dft = gl.load_spots_csv(ld_str,rgc_lim=rgc_lim,
                             filter_region=filter_region,filter_region_kind=filter_region_kind)
 
+            if dft is None:
+                print('No data for {!s}'.format(ld_str))
+                continue
             for xkey in xkeys:
                 dft[xkey]    = ld_inx*24 + dft[xkey]
 
@@ -184,10 +195,8 @@ def main(run_dct):
                 data_ds[param]          = d_ds 
             data_dss[xkey] = data_ds
 
-        # Save to data file.
-        nc_name = dt.strftime('%Y%m%d') + '.data.nc'
-        nc_path = os.path.join(ncs_path,nc_name)
 
+        # Save to data file.
         first   = True
         for xkey,map_ds in map_dss.items():
             if first:
@@ -205,3 +214,4 @@ def main(run_dct):
         
         mbz2    = gl.MyBz2(nc_path)
         mbz2.compress()
+    return ncs_path

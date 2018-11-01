@@ -452,8 +452,10 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
     csv_path = "data/spot_csvs/{}.csv.bz2".format(date_str)
     if os.path.exists(hdf_path):
         df  = pd.read_hdf(hdf_path)
-    else:
+    elif os.path.exists(csv_path):
         df  = pd.read_csv(csv_path,parse_dates=['occurred'])
+    else:
+        return
 
     # Select spotting networks
     if data_sources is not None:

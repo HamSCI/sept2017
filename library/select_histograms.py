@@ -16,7 +16,7 @@ from . import gen_lib as gl
 from .geospace_env import GeospaceEnv
 
 class HistogramSelector(object):
-    def __init__(self,pattern='*.data.nc',geospace_env=None,**kwargs):
+    def __init__(self,pattern='*.data.nc.bz2',geospace_env=None,**kwargs):
 
         self.run_dct            = kwargs
         self.run_dct['pattern'] = pattern
