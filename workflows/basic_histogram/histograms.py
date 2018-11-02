@@ -6,48 +6,48 @@ import os
 import datetime
 import library as lib
 
-run_name    = 'testing'
+run_name    = 'Europe'
 data_dir    = os.path.join('data/histograms',run_name)
 plot_dir    = os.path.join('output/galleries/histograms',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs','slt_mid']
 sTime       = datetime.datetime(2017,9,6,6)
 eTime       = datetime.datetime(2017,9,6,18)
-region      = 'US'
+region      = 'Europe'
 rgc_lim     = (0, 3000)
 
 geo_env     = lib.GeospaceEnv()
 
-## Create histogram NetCDF Files ################################################
-#rd  = {}
-#rd['sDate']                 = sTime
-#rd['eDate']                 = eTime
-#rd['params']                = params
-#rd['xkeys']                 = xkeys
-#rd['rgc_lim']               = rgc_lim
-#rd['filter_region']         = region
-#rd['filter_region_kind']    = 'mids'
-#rd['xb_size_min']           = 30.
-#rd['yb_size_km']            = 500.
-#rd['reprocess']             = True
-#rd['output_dir']            = data_dir
-#rd['band_obj']              = lib.gl.BandData()
-#lib.calculate_histograms.main(rd)
-#
-## Calculate Statistics from Histograms #########################################
-#rd = {}
-#rd['src_dir']               = data_dir
-#rd['params']                = params
-#rd['xkeys']                 = xkeys
-#rd['stats']                 = ['sum','mean','median','std']
-#lib.statistics_histograms.main(rd)
-#
-## Baseline daily observations against statistics ###############################
-#rd = {}
-#rd['src_dir']               = data_dir
-#rd['xkeys']                 = xkeys
-#rd['stats']                 = ['pct_err','z_score']
-#lib.baseline_histograms.main(rd)
+# Create histogram NetCDF Files ################################################
+rd  = {}
+rd['sDate']                 = sTime
+rd['eDate']                 = eTime
+rd['params']                = params
+rd['xkeys']                 = xkeys
+rd['rgc_lim']               = rgc_lim
+rd['filter_region']         = region
+rd['filter_region_kind']    = 'mids'
+rd['xb_size_min']           = 30.
+rd['yb_size_km']            = 500.
+rd['reprocess']             = True
+rd['output_dir']            = data_dir
+rd['band_obj']              = lib.gl.BandData()
+lib.calculate_histograms.main(rd)
+
+# Calculate Statistics from Histograms #########################################
+rd = {}
+rd['src_dir']               = data_dir
+rd['params']                = params
+rd['xkeys']                 = xkeys
+rd['stats']                 = ['sum','mean','median','std']
+lib.statistics_histograms.main(rd)
+
+# Baseline daily observations against statistics ###############################
+rd = {}
+rd['src_dir']               = data_dir
+rd['xkeys']                 = xkeys
+rd['stats']                 = ['pct_err','z_score']
+lib.baseline_histograms.main(rd)
 
 # Visualization ################################################################
 ### Visualize Observations

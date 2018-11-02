@@ -456,6 +456,7 @@ class ncLoader(object):
                     robust      = robust_dict.get(freq,True)
                     result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,
                             cbar_kwargs=cbar_kwargs)
+#                    result      = data.plot(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
 
                     if plot_sza:
                         self.sza.plot(group,ax)
