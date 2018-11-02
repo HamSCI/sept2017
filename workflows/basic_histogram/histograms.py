@@ -58,6 +58,7 @@ rd['sTime']                 = sTime
 rd['eTime']                 = eTime
 rd['plot_region']           = region
 rd['geospace_env']          = geo_env
+rd['band_keys']             = [28, 21, 14, 7]
 lib.visualize_histograms.main(rd)
 import ipdb; ipdb.set_trace()
 lib.visualize_histograms.plot_dailies(rd)

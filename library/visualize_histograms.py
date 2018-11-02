@@ -162,7 +162,7 @@ class Sza(object):
         sza_ax.set_ylim(110,0)
 
 class ncLoader(object):
-    def __init__(self,sTime,eTime=None,srcs=None,**kwargs):
+    def __init__(self,sTime,eTime=None,srcs=None,band_keys=None,**kwargs):
         if eTime is None:
             eTime = sTime + datetime.timedelta(hours=24)
 
@@ -170,6 +170,7 @@ class ncLoader(object):
         self.eTime      = eTime
         self.srcs       = srcs
         self.kwargs     = kwargs
+        self.band_keys  = band_keys
 
         self._set_basename()
         self._get_fnames()
@@ -227,6 +228,10 @@ class ncLoader(object):
                     grp = '/'.join([prefix,group])
                     with xr.open_dataset(nc,group=grp) as fl:
                         ds      = fl.load()
+
+                    # Select only bands that we will be plotting.
+                    if self.band_keys is not None:
+                        ds      = ds.loc[{'freq_MHz':self.band_keys}]
 
                     # Calculate time vector relative to self.sTime
                     hrs         = np.array(ds.coords[group])
