@@ -24,7 +24,7 @@ class KeyParamStore(object):
         for xkey in xkeys:
             data_das[xkey] = {}
             for param in params:
-                data_das[xkey][param] = [] 
+                data_das[xkey][param] = []
         return data_das
 
     def load_nc(self,nc):
@@ -35,7 +35,35 @@ class KeyParamStore(object):
             for param in self.params:
                 with xr.open_dataset(mbz2.unc_name,group=group) as fl:
                     ds = fl.load()
-                self.data_das[xkey][param].append(ds[param])
+
+                if self.prefix == 'map':
+                    da00        = ds[param]
+                    da00_attrs  = da00.attrs
+        
+                    da0         = da00.sum(xkey)
+                    da0.attrs   = da00_attrs
+                    self.data_das[xkey][param].append(da0)
+                elif self.prefix == 'time_series':
+                    self.data_das[xkey][param].append(ds[param])
+
+#                if self.prefix == 'time_series':
+#                    if self.data_das[xkey][param] is None:
+#                        self.data_das[xkey][param] = []
+#                    self.data_das[xkey][param].append(ds[param])
+#
+#                elif self.prefix == 'map':
+#                    ds00        = ds[param]
+#                    ds00_attrs  = ds00.attrs
+#        
+#                    ds0         = ds00.sum(xkey)
+#                    ds0.attrs   = ds00_attrs
+#
+#                    if self.data_das[xkey][param] is None:
+#                        self.data_das[xkey][param] = ds0
+#                    else:
+#                        ds1     = self.data_das[xkey][param]
+#                        import ipdb; ipdb.set_trace()
+
         mbz2.remove()
         return self.data_das
 

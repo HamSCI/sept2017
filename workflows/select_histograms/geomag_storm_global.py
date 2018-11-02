@@ -80,14 +80,17 @@ class HamDataSet(object):
         rd['sTime']                 = self.rd.get('sTime')
         rd['eTime']                 = self.rd.get('eTime')
         rd['geospace_env']          = self.rd.get('geo_env')
+        rd['plot_kpsymh']           = self.rd.get('plot_kpsymh',True)
+        rd['plot_goes']             = self.rd.get('plot_goes',True)
+        rd['plot_sza']              = self.rd.get('plot_sza',True)
         lib.visualize_histograms.main(rd)
-        lib.visualize_histograms.plot_dailies(rd)
+#        lib.visualize_histograms.plot_dailies(rd)
 
         ### Visualize Baselines
         rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.baseline_compare.nc.bz2')
         rd['robust_dict']           = {1:False}
         lib.visualize_histograms.main(rd)
-        lib.visualize_histograms.plot_dailies(rd)
+#        lib.visualize_histograms.plot_dailies(rd)
 
         ### Visualize Statistics
         rd = {}
@@ -151,6 +154,9 @@ if __name__ == '__main__':
     rd['kp_min']        = None
     rd['kp_max']        =   3
 
+    rd['plot_goes']     = False
+    rd['plot_sza']      = False
+
     baseline = HamDataSet(rd)
     baseline.create()
     baseline.select()
@@ -164,6 +170,7 @@ if __name__ == '__main__':
     rd['plot_dir']   = os.path.join('output/galleries/histograms',run_name)
     rd['sTime']      = datetime.datetime(2017,9,7)
     rd['eTime']      = datetime.datetime(2017,9,14)
+    rd['plot_sza']      = False
 
     lib.gl.prep_output({0:rd['data_dir']},clear=True)
     lib.gl.prep_output({0:rd['plot_dir']},clear=True)

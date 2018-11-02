@@ -68,9 +68,11 @@ def plot_nc(data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
         ax.plot(np.arange(10))
         map_data            = map_da.sel(freq_MHz=freq).copy()
         xkey                = data_da.attrs['xkey']
-        xvec                = np.array(map_data[xkey])
-        tf                  = np.logical_and(xvec >= xlim[0], xvec < xlim[1])
-        map_data            = map_data[{xkey:tf}].sum(dim=xkey)
+
+        if xkey in list(map_data.coords):
+            xvec                = np.array(map_data[xkey])
+            tf                  = np.logical_and(xvec >= xlim[0], xvec < xlim[1])
+            map_data            = map_data[{xkey:tf}].sum(dim=xkey)
 
         map_n               = int(np.sum(map_data))
         tf                  = map_data < 1
