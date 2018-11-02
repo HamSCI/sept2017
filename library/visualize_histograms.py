@@ -19,6 +19,7 @@ import tqdm
 from . import gen_lib as gl
 from .timeutils import daterange
 from .geospace_env import GeospaceEnv
+from . import goes
 
 pdict   = {}
 
@@ -161,6 +162,50 @@ class Sza(object):
         sza_ax.set_ylabel(ylabel)
         sza_ax.set_ylim(110,0)
 
+class Goeser(object):
+    def __init__(self,sTime,eTime,sats=[13,15]):
+        self.sTime  = sTime
+        self.eTime  = eTime
+        self.sats   = sats
+
+        self.load_goes()
+
+    def load_goes(self):
+        sTime   = self.sTime
+        eTime   = self.eTime
+        sats    = self.sats
+
+        goes_dcts       = OrderedDict()
+        for sat in sats:
+            goes_dcts[sat]  = {}
+
+        flares_combined = pd.DataFrame()
+        for sat_nr,gd in goes_dcts.items():
+            gd['data']      = goes.read_goes(sTime,eTime,sat_nr=sat_nr)
+            flares          = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
+            flares['sat']   = sat_nr
+            gd['flares']    = flares
+            flares_combined = flares_combined.append(flares).sort_index()
+            gd['var_tags']  = ['B_AVG']
+            gd['labels']    = ['GOES {!s}'.format(sat_nr)]
+
+        self.flares_combined = flares_combined[~flares_combined.index.duplicated()].sort_index()
+        self.goes_dcts  = goes_dcts
+
+    def plot(self,ax,lw=2):
+        sTime   = self.sTime
+        eTime   = self.eTime
+
+        for sat_nr,gd in self.goes_dcts.items():
+            goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
+                    var_tags=gd['var_tags'],labels=gd['labels'],
+                    legendLoc='upper right',lw=lw)
+
+        title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
+        size    = 20
+        ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':size,'weight':'bold'})
+
+
 class ncLoader(object):
     def __init__(self,sTime,eTime=None,srcs=None,band_keys=None,**kwargs):
         if eTime is None:
@@ -282,7 +327,8 @@ class ncLoader(object):
         self.datasets   = dss
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
-            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,**kwargs):
+            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
+            plot_kpsymh=True,plot_goes=True,**kwargs):
         if self.datasets is None:
             return
 
@@ -326,24 +372,40 @@ class ncLoader(object):
                 freqs       = np.sort(data_da['freq_MHz'])[::-1]
 
                 nx      = 100
-                ny      = len(freqs)+1
+                ny      = len(freqs)
+                if plot_kpsymh:
+                    ny += 1
+
+                if plot_goes:
+                    ny += 1
 
                 fig     = plt.figure(figsize=(30,4*ny))
 
                 axs_to_adjust   = []
 
-                inx = 0
-                ax  = plt.subplot2grid((ny,nx),(inx,35),colspan=65)
-                ax.set_xlim(xlim)
-                ax.set_ylim(ylim)
+                pinx = -1
+                if plot_kpsymh:
+                    pinx    += 1
+                    ax      = plt.subplot2grid((ny,nx),(pinx,35),colspan=65)
+                    ax.set_xlim(xlim)
+                    ax.set_ylim(ylim)
 
-                omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
-                                    kp_markersize=10,dst_lw=2,dst_param='SYM-H')
-                axs_to_adjust   += omni_axs
+                    omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
+                                        kp_markersize=10,dst_lw=2,dst_param='SYM-H')
+                    axs_to_adjust   += omni_axs
+
+                ######################################## 
+                if plot_goes:
+                    goeser  = Goeser(self.sTime,self.eTime)
+                    pinx    +=1 
+                    ax      = plt.subplot2grid((ny,nx),(pinx,35),colspan=65)
+                    goeser.plot(ax)
+                    ax.set_xlim(xlim)
+                    axs_to_adjust.append(ax)
                 
                 map_sum         = 0
                 for inx,freq in enumerate(freqs):
-                    plt_row = inx+1
+                    plt_row = inx+pinx+1
 
                     # Plot Map #############################
                     ax = plt.subplot2grid((ny,nx),(plt_row,0),projection=ccrs.PlateCarree(),colspan=30)
@@ -427,29 +489,29 @@ class ncLoader(object):
                     hist_ax = ax
 
                 # Place Information in Upper Left Corner of Figure
-                xpos        = 0.050
-                ypos        = 0.950
-                fdict       = {'size':32,'weight':'bold'}
                 date_str_0  = self.sTime.strftime('%d %b %Y')
                 date_str_1  = self.eTime.strftime('%d %b %Y')
 
-                if self.eTime-self.sTime < datetime.timedelta(hours=24):
-                    title   = date_str_0
-                else:
-                    title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
-                fig.text(xpos,ypos,title,fontdict=fdict)
-
                 lines   = []
                 l       = lines.append
+
+                if self.eTime-self.sTime < datetime.timedelta(hours=24):
+                    l(date_str_0)
+                else:
+                    l('{!s}-\n{!s}'.format(date_str_0,date_str_1))
+
                 l('Ham Radio Networks')
                 l('N Spots = {!s}'.format(map_sum))
                 lines   += self.src_cnts.get_text(group,data_var)
                 txt     = '\n'.join(lines)
-                fdict   = {'size':30,'weight':'bold'}
-                fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
+
+                xpos        = 0.025
+                ypos        = 0.995
+                fdict       = {'size':30,'weight':'bold'}
+                fig.text(xpos,ypos,txt,fontdict=fdict,va='top')
+
                 ######################################## 
                 fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-
                 for ax_0 in axs_to_adjust:
                     gl.adjust_axes(ax_0,hist_ax)
 
