@@ -100,6 +100,67 @@ class SrcCounts(object):
 
         return lines
 
+def center_of_mass(da,c0,c1):
+    """
+    Calculate the center of mass of a 2D xarray.
+    Used to find the lat/lon center of a group of
+    spots.
+    """
+
+    c0s     = np.array(da.sum(c1))
+    crds    = np.array(da.coords[c0])
+    com     = np.sum(c0s*crds)/np.sum(c0s)
+    return com
+    
+class Sza(object):
+    def __init__(self,xdct,sTime,eTime):
+        """
+        Calculate percentages of data sources.
+        xdct: dictionary of datasets that have src_cnt attributes.
+        """
+        sza_dct = {}
+        # Add up the sources for each day.
+        for group,ds in xdct.items():
+            for data_var in ds.data_vars:
+                da = ds[data_var].sum('freq_MHz')
+
+                for dim in da.dims:
+                    if '_long' in dim:
+                        lon_dim = dim
+
+                    if '_lat' in dim:
+                        lat_dim = dim
+
+                sza_lat = center_of_mass(da,lat_dim,lon_dim)
+                sza_lon = center_of_mass(da,lon_dim,lat_dim)
+
+                if 'slt' in group:
+                    offset      = datetime.timedelta(hours=(sza_lon/15.))
+                    sza         = gl.calc_solar_zenith(sTime-offset,eTime-offset,sza_lat,sza_lon)
+                    sza.index   = sza.index + offset
+                else:
+                    sza         = gl.calc_solar_zenith(sTime,eTime,sza_lat,sza_lon)
+
+
+                if 'spot_density' in data_var:
+                    sza_dct[group] = {'sza':sza,'lat':sza_lat,'lon':sza_lon}
+
+        self.sza    = sza_dct
+
+    def plot(self,group,ax,ls='--',lw=2,color='white'):
+        sza_lat = self.sza[group]['lat'] 
+        sza_lon = self.sza[group]['lon'] 
+        sza     = self.sza[group]['sza'] 
+
+        xx      = sza.index
+        yy      = sza['els']
+
+        sza_ax  = ax.twinx()
+        sza_ax.plot(xx,yy,ls=ls,lw=lw,color=color)
+        ylabel  = u'Solar Zenith \u2220\n@ ({:.0f}\N{DEGREE SIGN} N, {:.0f}\N{DEGREE SIGN} E)'.format(sza_lat,sza_lon)
+        sza_ax.set_ylabel(ylabel)
+        sza_ax.set_ylim(110,0)
+
 class ncLoader(object):
     def __init__(self,sTime,eTime=None,srcs=None,**kwargs):
         if eTime is None:
@@ -196,6 +257,7 @@ class ncLoader(object):
             mbz2.remove()
 
         # Process source counts - know what percentage of spots came from what sources.
+        self.sza        = Sza(dss['map'],self.sTime,self.eTime)
         self.src_cnts   = SrcCounts(dss['time_series'])
 
         # Concatenate Time Series Data
@@ -214,8 +276,8 @@ class ncLoader(object):
 
         self.datasets   = dss
 
-    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',subdir=None,
-            geospace_env=None,**kwargs):
+    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
+            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,**kwargs):
         if self.datasets is None:
             return
 
@@ -277,6 +339,8 @@ class ncLoader(object):
                 map_sum         = 0
                 for inx,freq in enumerate(freqs):
                     plt_row = inx+1
+
+                    # Plot Map #############################
                     ax = plt.subplot2grid((ny,nx),(plt_row,0),projection=ccrs.PlateCarree(),colspan=30)
 
                     ax.coastlines(zorder=10,color='w')
@@ -295,7 +359,22 @@ class ncLoader(object):
                     fdict   = {'weight':lweight,'size':lsize}
                     ax.text(0.5,-0.1,'Radio Spots (N = {!s})'.format(map_n),
                             ha='center',transform=ax.transAxes,fontdict=fdict)
-                    
+
+                    if plot_sza:
+                        sza_lat = self.sza.sza[group]['lat'] 
+                        sza_lon = self.sza.sza[group]['lon'] 
+                        ax.scatter([sza_lon],[sza_lat],marker='*',s=600,color='yellow',
+                                        edgecolors='black',zorder=500,lw=3)
+
+                    if plot_region is not None:
+                        rgn         = gl.regions.get(plot_region)
+                        lat_lim     = rgn.get('lat_lim')
+                        lon_lim     = rgn.get('lon_lim')
+
+                        ax.set_xlim(lon_lim)
+                        ax.set_ylim(lat_lim)
+
+                    # Plot Time Series ##################### 
                     ax      = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
                     data    = data_da.sel(freq_MHz=freq).copy()
 
@@ -305,9 +384,14 @@ class ncLoader(object):
                         data.values[tf] = 0
                         data.name   = 'log({})'.format(data.name)
 
+                    cbar_kwargs = {'pad':0.080}
                     robust_dict = self.kwargs.get('robust_dict',{})
                     robust      = robust_dict.get(freq,True)
-                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust)
+                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,
+                            cbar_kwargs=cbar_kwargs)
+
+                    if plot_sza:
+                        self.sza.plot(group,ax)
 
                     for tl in ax.get_xticklabels():
                         tl.set_rotation(10)
@@ -315,10 +399,15 @@ class ncLoader(object):
                     xlbl    = ax.get_xlabel()
                     if xlbl == 'ut_hrs':
                         ax.set_xlabel('Date Time [UT]')
+                    elif xlbl == 'slt_mid':
+                        ax.set_xlabel('Midpoint Solar Local Time')
 
                     ylbl    = ax.get_ylabel()
                     if ylbl == 'dist_Km':
                         ax.set_ylabel('$R_{gc}$ [km]')
+
+                    if inx != len(freqs)-1:
+                        ax.set_xlabel('')
 
                     ax.set_title('')
 
@@ -354,8 +443,7 @@ class ncLoader(object):
                 fdict   = {'size':30,'weight':'bold'}
                 fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
                 ######################################## 
-
-                fig.tight_layout()
+                fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
                 for ax_0 in axs_to_adjust:
                     gl.adjust_axes(ax_0,hist_ax)

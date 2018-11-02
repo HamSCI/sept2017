@@ -10,7 +10,7 @@ import json
 
 import tqdm
 
-from .timeutils import daterange
+from .timeutils import daterange, strip_time
 from . import gen_lib as gl
 
 def calc_histogram(frame,attrs):
@@ -75,7 +75,10 @@ def main(run_dct):
     gl.prep_output({0:ncs_path},clear=reprocess)
 
     # Loop through dates
-    dates   = list(daterange(sDate, eDate))[:-1]
+    dates       = list(daterange(sDate, eDate))
+    if strip_time(sDate) != strip_time(eDate):
+        dates   = dates[:-1]
+
     for dt in tqdm.tqdm(dates):
         nc_name = dt.strftime('%Y%m%d') + '.data.nc'
         nc_path = os.path.join(ncs_path,nc_name)

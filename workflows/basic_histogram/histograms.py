@@ -11,8 +11,10 @@ data_dir    = os.path.join('data/histograms',run_name)
 plot_dir    = os.path.join('output/galleries/histograms',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs','slt_mid']
-sTime       = datetime.datetime(2017,9,1,12)
-eTime       = datetime.datetime(2017,9,3)
+sTime       = datetime.datetime(2017,9,6,6)
+eTime       = datetime.datetime(2017,9,6,18)
+region      = 'US'
+rgc_lim     = (0, 3000)
 
 geo_env     = lib.GeospaceEnv()
 
@@ -22,11 +24,12 @@ rd['sDate']                 = sTime
 rd['eDate']                 = eTime
 rd['params']                = params
 rd['xkeys']                 = xkeys
-rd['rgc_lim']               = (0,10000)
-rd['filter_region']         = None
+rd['rgc_lim']               = rgc_lim
+rd['filter_region']         = region
 rd['filter_region_kind']    = 'mids'
 rd['xb_size_min']           = 30.
 rd['yb_size_km']            = 500.
+rd['reprocess']             = True
 rd['output_dir']            = data_dir
 rd['band_obj']              = lib.gl.BandData()
 lib.calculate_histograms.main(rd)
@@ -53,8 +56,10 @@ rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
 rd['baseout_dir']           = plot_dir
 rd['sTime']                 = sTime
 rd['eTime']                 = eTime
+rd['plot_region']           = region
 rd['geospace_env']          = geo_env
 lib.visualize_histograms.main(rd)
+import ipdb; ipdb.set_trace()
 lib.visualize_histograms.plot_dailies(rd)
 
 ### Visualize Baselines

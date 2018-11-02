@@ -1,12 +1,14 @@
 import datetime
-from datetime import timedelta, date
+
+def strip_time(dt):
+    return datetime.datetime(dt.year,dt.month,dt.day)
 
 def daterange(sTime,eTime):
     """ Get every date in the range start_date -> end_date (inc) """
-    start_date  = datetime.datetime(sTime.year,sTime.month,sTime.day) 
-    end_date    = datetime.datetime(eTime.year,eTime.month,eTime.day) 
+    start_date  = strip_time(sTime)
+    end_date    = strip_time(eTime)
     for n in range(int ((end_date - start_date).days)+1):
-        yield start_date + timedelta(n)
+        yield start_date + datetime.timedelta(n)
 
 def dt64_to_ut_hours(dt64):
     """ Get UT hours in a decimal from datetime64 """

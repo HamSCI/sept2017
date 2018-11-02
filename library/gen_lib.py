@@ -538,6 +538,16 @@ def sunAzEl(dates,lat,lon):
         els.append(el)
     return azs,els
 
+def calc_solar_zenith(sTime,eTime,sza_lat,sza_lon):
+    sza_dts = [sTime]
+    while sza_dts[-1] < eTime:
+        sza_dts.append(sza_dts[-1]+datetime.timedelta(minutes=5))
+
+    azs,els = sunAzEl(sza_dts,sza_lat,sza_lon)
+    
+    sza = pd.DataFrame({'els':els},index=sza_dts)
+    return sza
+
 def calc_solar_zenith_region(sTime,eTime,region='World'):
     rgn     = regions.get(region)
     lat_lim = rgn.get('lat_lim')
@@ -546,13 +556,7 @@ def calc_solar_zenith_region(sTime,eTime,region='World'):
     sza_lat = (lat_lim[1]-lat_lim[0])/2. + lat_lim[0]
     sza_lon = (lon_lim[1]-lon_lim[0])/2. + lon_lim[0]
 
-    sza_dts = [sTime]
-    while sza_dts[-1] < eTime:
-        sza_dts.append(sza_dts[-1]+datetime.timedelta(minutes=5))
-
-    azs,els = sunAzEl(sza_dts,sza_lat,sza_lon)
-    
-    sza = pd.DataFrame({'els':els},index=sza_dts)
+    sza     = calc_solar_zenith(sTime,eTime,sza_lat,sza_lon)
 
     return (sza,sza_lat,sza_lon)
 
