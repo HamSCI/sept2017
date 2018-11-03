@@ -500,8 +500,6 @@ class ncLoader(object):
 
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
-#                    ax.tick_params(direction='out', length=6, width=2, colors='k', grid_color='r', grid_alpha=0.5)
-#                    ax.tick_params(direction='out', length=6, width=2, colors='k')
                     ax.tick_params(**tick_params)
                     hist_ax = ax
 

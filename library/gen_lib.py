@@ -53,7 +53,7 @@ tmp['label']            = 'f [MHz]'
 prmd['freq']            = tmp
 
 tmp = {}
-tmp['label']            = 'R_gc [km]'
+tmp['label']            = '$R_{gc}$ [km]'
 prmd['dist_Km']         = tmp
 
 tmp = {}

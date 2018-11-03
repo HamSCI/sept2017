@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import datetime
+import string
 import multiprocessing as mp
 from collections import OrderedDict
 
@@ -25,30 +26,13 @@ from library.omni import Omni
 
 from library import gen_lib as gl
 
+tick_params = dict(axis='x',pad=15,direction='out', length=12, width=2, colors='k',zorder=600)
+
 layouts = {}
 
 tmp = {}
 #goes legend size = 15
 layouts['default']  = tmp
-
-tmp = {}
-sf = 0.9
-tmp['figsize']          = (sf*70,sf*30)
-tmp['env_rspan']        = 2
-tmp['band_rspan']       = 3
-tmp['c0_cspan']         = 23
-tmp['c1_pos']           = 30
-tmp['c1_cspan']         = 75
-tmp['nx']               = 100
-tmp['map_cbar_shrink']  = 0.75
-tmp['freq_size']        = 50
-tmp['goes_lw']          = 5
-tmp['kp_markersize']    = 20
-tmp['title_size']       = 36
-tmp['ticklabel_size']   = 28
-tmp['label_size']       = 36
-tmp['legend_size']      = 24
-layouts['2band']        = tmp
 
 tmp = {}
 sf = 1.0
@@ -113,6 +97,34 @@ tmp['sza_lw']           = 3
 tmp['sza_label_size']   = 26
 tmp['sza_sun_size']     = 1500
 layouts['6band3day']    = tmp
+
+tmp = {}
+sf = 0.9
+tmp['figsize']          = (sf*65,sf*30)
+tmp['env_rspan']        = 2
+tmp['band_rspan']       = 3
+tmp['c0_cspan']         = 23
+tmp['c1_pos']           = 27
+tmp['c1_cspan']         = 75
+tmp['nx']               = 100
+tmp['map_cbar_shrink']  = 0.75
+tmp['freq_size']        = 50
+tmp['goes_lw']          = 5
+tmp['kp_markersize']    = 20
+tmp['title_size']       = 36
+tmp['ticklabel_size']   = 28
+tmp['label_size']       = 36
+tmp['legend_size']      = 24
+layouts['2band']        = tmp
+
+class PlotLetter(object):
+    def __init__(self,inx=0):
+        self.inx    = inx
+    def __call__(self,ax):
+        txt = '({!s})'.format(string.ascii_lowercase[self.inx])
+        fontdict    = {'weight':'bold','size':50}
+        ax.text(-0.075,0.875,txt,fontdict=fontdict,transform=ax.transAxes,ha='center')
+        self.inx  += 1
 
 def set_text_props(title_size='xx-large',ticklabel_size='xx-large',
         label_size='xx-large',legend_size='large',text_weight='bold',**kwargs):
@@ -209,9 +221,6 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
             vmax    = vm_scale*np.nanmax(hist)
             if np.sum(hist) == 0: vmax = 1.0
 
-#        tf          = np.isnan(hist)
-#        hist[tf]    = vmin
-
     ret_dct['hist'] = hist
     if calc_hist_maxes:
         return ret_dct
@@ -224,7 +233,7 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
     if plot_title:
         ax.set_title(title)
 
-    ax.set_ylabel('R_gc [km]')
+    ax.set_ylabel('$R_{gc}$ [km]')
 
     levels  = np.linspace(vmin,vmax,15)
 
@@ -526,10 +535,13 @@ def make_figure(sTime,eTime,xkey='occurred',
     # Keep track of all of the time series axes.
     ts_axs  = []
 
+    plot_letter     = PlotLetter()
     # Geospace Environment ####################
     axs_to_adjust   = []
     omni            = Omni()
     ax              = plt.subplot2grid((ny,nx),(0,c1_pos),colspan=c1_span,rowspan=env_rspan)
+    ax.tick_params(**tick_params)
+    plot_letter(ax)
     msize           = lout.get('kp_markersize',10)
     dst_lw          = lout.get('goes_lw',2)
     omni_axs        = omni.plot_dst_kp(sTime,eTime,ax,xlabels=True,
@@ -565,6 +577,8 @@ def make_figure(sTime,eTime,xkey='occurred',
     flares_combined.to_csv(csv_path+'.csv')
 
     ax              = plt.subplot2grid((ny,nx),(env_rspan,c1_pos),colspan=c1_span,rowspan=env_rspan)
+    plot_letter(ax)
+    ax.tick_params(**tick_params)
     xdct            = gl.prmd[xkey]
     xlabel          = xdct.get('label',xkey)
     goes_lw         = lout.get('goes_lw',2)
@@ -624,6 +638,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         # Histograms ########################### 
         ax      = plt.subplot2grid((ny,nx),(fig_row,c1_pos),
                     colspan=c1_span,rowspan=band_rspan)
+        ax.tick_params(**tick_params)
+        plot_letter(ax)
         axs_to_adjust.append(ax)
         ts_axs.append({'ax':ax,'axvline_props':{'color':'w'}})
         title   = '{!s} ({!s})'.format(date_str,bstring)
@@ -724,6 +740,8 @@ def make_figure(sTime,eTime,xkey='occurred',
         # Histograms ########################### 
         ax      = plt.subplot2grid((ny,nx),(fig_row,c1_pos),
                     colspan=c1_span,rowspan=band_rspan)
+        plot_letter(ax)
+        ax.tick_params(**tick_params)
         ts_axs.append({'ax':ax,'axvline_props':{'color':'w'}})
         title   = '{!s} ({!s})'.format(date_str,band.get('freq_name'))
 
@@ -820,32 +838,39 @@ def make_figure(sTime,eTime,xkey='occurred',
                 fsize   = lout.get('flarelabel_size',22)
                 ax.text(mark_time,1,label,rotation=90,va='top',ha='right',transform=trans,fontdict={'weight':'bold','size':fsize},color=color)
 
-    fig.subplots_adjust(left=0,right=1,bottom=0,top=1)
-
-    # Force geospace environment axes to line up with histogram
-    # axes even though it doesn't have a color bar.
-    for ax_0 in axs_to_adjust:
-        gl.adjust_axes(ax_0,hist_ax)
-
-#    fdict   = {'size':50,'weight':'bold'}
-#    title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
-#    fig.text(0.030,0.925,title,fontdict=fdict)
-
-    xpos    = lout.get('main_title_xpos',0.150) # 0.030
-    ypos    = lout.get('main_title_ypos',0.800) # 0.925
+    # Place Information in Upper Left Corner of Figure
+    lines   = []
+    l       = lines.append
     fdict   = {'size':50,'weight':'bold'}
     if eTime-sTime < datetime.timedelta(hours=24):
         title   = date_str_0
     else:
         title   = '{!s}-\n{!s}'.format(date_str_0,date_str_1)
-    fig.text(xpos,ypos,title,fontdict=fdict)
+    l(title)
 
+    l('Ham Radio Networks')
     meters  = [x['meters'] for x in band_obj.band_dict.values()]
-    srcs    = '\n'.join([' '+x for x in gl.list_sources(df,bands=meters)])
-    txt     = 'Ham Radio Networks\n' + srcs
-    fdict   = {'size':30,'weight':'bold'}
-    fig.text(xpos,ypos-0.080,txt,fontdict=fdict)
+    srcs_cnts   = gl.count_sources(df,bands=meters)
+    srcs_names  = list(srcs_cnts.keys())
+    srcs_names.sort()
+    n_spots     = np.sum([val for key,val in srcs_cnts.items()])
+    
+    l('N Spots = {!s}'.format(n_spots))
+    for src_name in srcs_names:
+        pct = (srcs_cnts[src_name]/n_spots) * 100.
+        l('   {!s}: {:.0f}%'.format(src_name,pct))
 
+    txt         = '\n'.join(lines)
+    xpos        = 0.025
+    ypos        = 0.995
+    fdict       = {'size':40,'weight':'bold'}
+    fig.text(xpos,ypos,txt,fontdict=fdict,va='top')
+
+    # Adjust subplot location
+    fig.subplots_adjust(left=0,right=1,bottom=0,top=1)
+    fig.subplots_adjust(hspace=0.6)
+    for ax_0 in axs_to_adjust:
+        gl.adjust_axes(ax_0,hist_ax)
 
     if fname is None:
         fname   = '{!s}_{!s}_{!s}_map-{!s}_filter-{!s}-{!s}-PLOTTED{!s}.png'.format(
