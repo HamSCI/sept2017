@@ -2,6 +2,7 @@ import os
 import glob
 import datetime
 from collections import OrderedDict
+import string
 import ast
 
 import matplotlib as mpl
@@ -53,6 +54,13 @@ band_dct[3]     = dct
 
 dct             = {'label':'1.8 MHz'}
 band_dct[1]     = dct
+
+tick_params = dict(direction='out', length=8, width=2, colors='k',zorder=600)
+
+def plot_letter(inx,ax):
+    txt = '({!s})'.format(string.ascii_lowercase[inx])
+    fontdict    = {'weight':'bold','size':36}
+    ax.text(-0.095,0.875,txt,fontdict=fontdict,transform=ax.transAxes,ha='center')
 
 class SrcCounts(object):
     def __init__(self,xdct):
@@ -392,6 +400,8 @@ class ncLoader(object):
 
                     omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
                                         kp_markersize=10,dst_lw=2,dst_param='SYM-H')
+                    ax.tick_params(**tick_params)
+                    plot_letter(pinx,ax)
                     axs_to_adjust   += omni_axs
 
                 ######################################## 
@@ -401,6 +411,8 @@ class ncLoader(object):
                     ax      = plt.subplot2grid((ny,nx),(pinx,35),colspan=65)
                     goeser.plot(ax)
                     ax.set_xlim(xlim)
+                    ax.tick_params(**tick_params)
+                    plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
                 
                 map_sum         = 0
@@ -443,6 +455,7 @@ class ncLoader(object):
 
                     # Plot Time Series ##################### 
                     ax      = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
+                    plot_letter(plt_row,ax)
                     data    = data_da.sel(freq_MHz=freq).copy()
 
                     if log_z:
@@ -487,6 +500,9 @@ class ncLoader(object):
 
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
+#                    ax.tick_params(direction='out', length=6, width=2, colors='k', grid_color='r', grid_alpha=0.5)
+#                    ax.tick_params(direction='out', length=6, width=2, colors='k')
+                    ax.tick_params(**tick_params)
                     hist_ax = ax
 
                 # Place Information in Upper Left Corner of Figure

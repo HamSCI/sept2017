@@ -222,7 +222,7 @@ class HistogramSelector(object):
 
         if eTime is not None:
             eDate   = datetime.datetime(eTime.year,eTime.month,eTime.day)
-            ft      = ft[ft.index < eDate].copy()
+            ft      = ft[ft.index <= eDate].copy()
         
         self.filetable  = ft
 
