@@ -350,20 +350,22 @@ class ncLoader(object):
 
         self.datasets   = dss
 
-    def _format_timeticklabels(self,ax,xlim):
+    def _format_timeticklabels(self,ax):
+        xlim        = self.xlim
+        tmf         = self.time_format
+
+        # "Smart" Tick Formatting Logic ########  
         if xlim[1] - xlim[0] < datetime.timedelta(days=1):
             for tl in ax.get_xticklabels():
                 tl.set_rotation(0)
                 tl.set_ha('center')
 
             xtls    = []
-            xtks    = ax.get_xticks()
-            for xtk in xtks:
+            for xtk in ax.get_xticks():
                 xtkd    = mpl.dates.num2date(xtk)
 
                 dec_hr  = xtkd.hour + xtkd.minute/60.
                 xtl     = '{:g}'.format(dec_hr)
-#                xtl     = xtkd.strftime('%H:%M')
                 xtls.append(xtl)
             ax.set_xticklabels(xtls)
 
@@ -375,15 +377,39 @@ class ncLoader(object):
                 tl.set_rotation(10)
                 tl.set_ha('right')
 
+        # Manual Override ######################
+        fmt = tmf.get('format')
+        if fmt is not None:
+            xtls    = []
+            for xtk in ax.get_xticks():
+                xtkd    = mpl.dates.num2date(xtk)
+                xtls.append(xtkd.strftime(fmt))
+            ax.set_xticklabels(xtls)
+
+        rotation    = tmf.get('rotation')
+        if rotation is not None:
+            for tl in ax.get_xticklabels():
+                tl.set_rotation(rotation)
+
+        ha          = tmf.get('ha')
+        if ha is not None:
+            for tl in ax.get_xticklabels():
+                tl.set_ha(ha)
+
+        label       = tmf.get('label')
+        if label is not None:
+            ax.set_xlabel(label)
+
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,axvlines=None,**kwargs):
+            plot_kpsymh=True,plot_goes=True,axvlines=None,time_format={},**kwargs):
         if self.datasets is None:
             return
 
         if geospace_env is None:
             geospace_env    = GeospaceEnv()
 
+        self.time_format    = time_format
         xlim_in = xlim
 
         for group,ds in self.datasets['time_series'].items():
@@ -397,12 +423,13 @@ class ncLoader(object):
             for data_var in ds.data_vars:
                 data_da = ds[data_var].copy()
 
+               # Set Axis Limits ###################### 
+                if ylim is None:
+                    ylim = ast.literal_eval(data_da.attrs.get('ylim','None'))
+
                 xlim    = xlim_in
                 if xlim is None:
                     xlim = ast.literal_eval(data_da.attrs.get('xlim','None'))
-
-                if ylim is None:
-                    ylim = ast.literal_eval(data_da.attrs.get('ylim','None'))
 
                 if xunits == 'datetime':
                     hrs         = np.array(data_da.coords[group])
@@ -413,6 +440,9 @@ class ncLoader(object):
                         xlim_0      = pd.Timedelta(hours=xlim[0]) + self.sTime
                         xlim_1      = pd.Timedelta(hours=xlim[1]) + self.sTime
                         xlim        = (xlim_0,xlim_1)
+
+                self.xlim   = xlim
+               ######################################## 
 
                 stat        = data_da.attrs.get('stat')
                 pdct        = pdict.get(stat,{})
@@ -455,7 +485,8 @@ class ncLoader(object):
                     plot_letter(pinx,ax)
                     plot_axv(axvlines,omni_axs[0],color='k',label_time=True)
                     for ax in omni_axs:
-                        self._format_timeticklabels(ax,xlim)
+                        self._format_timeticklabels(ax)
+                        ax.set_xlabel('')
                     axs_to_adjust   += omni_axs
 
                 ######################################## 
@@ -469,7 +500,8 @@ class ncLoader(object):
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
-                    self._format_timeticklabels(ax,xlim)
+                    self._format_timeticklabels(ax)
+                    ax.set_xlabel('')
                 
                 map_sum         = 0
                 for inx,freq in enumerate(freqs):
@@ -546,15 +578,12 @@ class ncLoader(object):
                     if ylbl == 'dist_Km':
                         ax.set_ylabel('$R_{gc}$ [km]')
 
-                    if inx != len(freqs)-1:
-                        ax.set_xlabel('')
-
                     ax.set_title('')
 
                     bdct    = band_dct.get(freq,{})
                     label   = bdct.get('label','{!s} MHz'.format(freq))
 
-                    ax.text(-0.11,0.5,label,transform=ax.transAxes,va='center',
+                    ax.text(-0.12,0.5,label,transform=ax.transAxes,va='center',
                             rotation=90,fontdict={'weight':'bold','size':30})
 
 
@@ -562,7 +591,10 @@ class ncLoader(object):
                     ax.set_ylim(ylim)
                     plot_axv(axvlines,ax,color='w')
                     ax.tick_params(**tick_params)
-                    self._format_timeticklabels(ax,xlim)
+                    self._format_timeticklabels(ax)
+                    if inx != len(freqs)-1:
+                        ax.set_xlabel('')
+
                     hist_ax = ax
 
                 # Place Information in Upper Left Corner of Figure
@@ -584,7 +616,7 @@ class ncLoader(object):
 
                 xpos        = 0.025
                 ypos        = 0.995
-                fdict       = {'size':30,'weight':'bold'}
+                fdict       = {'size':38,'weight':'bold'}
                 fig.text(xpos,ypos,txt,fontdict=fdict,va='top')
 
                 ######################################## 

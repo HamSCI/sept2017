@@ -91,8 +91,6 @@ class HamDataSet(object):
         ### Visualize Baselines
         rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'*.baseline_compare.nc.bz2')
         rd['robust_dict']           = {1:False}
-        rd['band_keys']             = self.rd.get('band_keys')
-        rd['plot_region']           = self.rd.get('filter_region')
         lib.visualize_histograms.main(rd)
 #        lib.visualize_histograms.plot_dailies(rd)
 

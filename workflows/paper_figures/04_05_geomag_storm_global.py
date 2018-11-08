@@ -9,12 +9,17 @@ import glob
 import datetime
 import library as lib
 
+import matplotlib as mpl
+mpl.use('Agg')
+
+mpl.rcParams['font.size'] = 13
+
 geo_env     = lib.GeospaceEnv()
 
 class HamDataSet(object):
     def __init__(self,run_dct={}):
         run_dct['params']               = run_dct.get('params',['spot_density'])
-        run_dct['xkeys']                = run_dct.get('xkeys', ['ut_hrs','slt_mid'])
+        run_dct['xkeys']                = run_dct.get('xkeys', ['ut_hrs'])
 
         run_dct['xb_size_min']          = run_dct.get('xb_size_min',  30.)
         run_dct['yb_size_km']           = run_dct.get('yb_size_km',  500.)
@@ -83,6 +88,9 @@ class HamDataSet(object):
         rd['plot_kpsymh']           = self.rd.get('plot_kpsymh',True)
         rd['plot_goes']             = self.rd.get('plot_goes',True)
         rd['plot_sza']              = self.rd.get('plot_sza',True)
+        rd['band_keys']             = self.rd.get('band_keys')
+        rd['plot_region']           = self.rd.get('filter_region')
+        rd['time_format']           = self.rd.get('time_format')
         lib.visualize_histograms.main(rd)
 #        lib.visualize_histograms.plot_dailies(rd)
 
@@ -92,11 +100,11 @@ class HamDataSet(object):
         lib.visualize_histograms.main(rd)
 #        lib.visualize_histograms.plot_dailies(rd)
 
-        ### Visualize Statistics
-        rd = {}
-        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'stats.nc.bz2')
-        rd['baseout_dir']           = self.rd.get('plot_dir')
-        lib.visualize_histograms_simple.main(rd)
+#        ### Visualize Statistics
+#        rd = {}
+#        rd['srcs']                  = os.path.join(self.rd.get('data_dir'),'stats.nc.bz2')
+#        rd['baseout_dir']           = self.rd.get('plot_dir')
+#        lib.visualize_histograms_simple.main(rd)
 
     def copy_stats(self,other):
         ### Copy files to the Data Directory and write a short report
@@ -165,12 +173,13 @@ if __name__ == '__main__':
 
     run_name    = 'geomag_storm_global'
     rd  = {}
-    rd['data_dir_0'] = baseline.rd.get('data_dir_0')
-    rd['data_dir']   = os.path.join(base_dir,run_name)
-    rd['plot_dir']   = os.path.join('output/galleries/histograms',run_name)
-    rd['sTime']      = datetime.datetime(2017,9,7)
-    rd['eTime']      = datetime.datetime(2017,9,14)
+    rd['data_dir_0']    = baseline.rd.get('data_dir_0')
+    rd['data_dir']      = os.path.join(base_dir,run_name)
+    rd['plot_dir']      = os.path.join('output/galleries/histograms',run_name)
+    rd['sTime']         = datetime.datetime(2017,9,7)
+    rd['eTime']         = datetime.datetime(2017,9,14)
     rd['plot_sza']      = False
+    rd['time_format']   = {'format':'%d %b','rotation':0,'ha':'center','label':'Date [UT]'}
 
     lib.gl.prep_output({0:rd['data_dir']},clear=True)
     lib.gl.prep_output({0:rd['plot_dir']},clear=True)
