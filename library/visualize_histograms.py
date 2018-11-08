@@ -36,6 +36,10 @@ dct = {}
 dct['log_z']            = False
 pdict['mean_subtract']  = dct
 
+label_dict  = {}
+label_dict['spot_density']          = 'spots bin$^{-1}$'
+label_dict['spot_density_z_score']  = '$z$(spots bin$^{-1}$)'
+
 band_dct = OrderedDict()
 dct             = {'label':'28 MHz'}
 band_dct[28]    = dct
@@ -61,6 +65,18 @@ def plot_letter(inx,ax):
     txt = '({!s})'.format(string.ascii_lowercase[inx])
     fontdict    = {'weight':'bold','size':36}
     ax.text(-0.095,0.875,txt,fontdict=fontdict,transform=ax.transAxes,ha='center')
+
+
+def plot_axv(axvlines,ax,label_time=False,**kwargs):
+    if axvlines is None:
+        return
+
+    for axv in axvlines:
+        ax.axvline(axv,ls=':',lw=3,**kwargs)
+        txt = axv.strftime('%H%M')
+        trans = mpl.transforms.blended_transform_factory(ax.transData,ax.transAxes)
+        if label_time:
+            ax.text(axv,0.98,txt,rotation=90,fontdict={'weight':'bold','size':'x-large'},transform=trans,va='top',ha='left')
 
 class SrcCounts(object):
     def __init__(self,xdct):
@@ -156,7 +172,7 @@ class Sza(object):
 
         self.sza    = sza_dct
 
-    def plot(self,group,ax,ls='--',lw=2,color='white'):
+    def plot(self,group,ax,ls='--',lw=4,color='white'):
         sza_lat = self.sza[group]['lat'] 
         sza_lon = self.sza[group]['lon'] 
         sza     = self.sza[group]['sza'] 
@@ -334,9 +350,34 @@ class ncLoader(object):
 
         self.datasets   = dss
 
+    def _format_timeticklabels(self,ax,xlim):
+        if xlim[1] - xlim[0] < datetime.timedelta(days=1):
+            for tl in ax.get_xticklabels():
+                tl.set_rotation(0)
+                tl.set_ha('center')
+
+            xtls    = []
+            xtks    = ax.get_xticks()
+            for xtk in xtks:
+                xtkd    = mpl.dates.num2date(xtk)
+
+                dec_hr  = xtkd.hour + xtkd.minute/60.
+                xtl     = '{:g}'.format(dec_hr)
+#                xtl     = xtkd.strftime('%H:%M')
+                xtls.append(xtl)
+            ax.set_xticklabels(xtls)
+
+            xlbl    = ax.get_xlabel()
+            if xlbl == 'Date Time [UT]':
+                ax.set_xlabel('Hours [UT]')
+        else:
+            for tl in ax.get_xticklabels():
+                tl.set_rotation(10)
+                tl.set_ha('right')
+
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,**kwargs):
+            plot_kpsymh=True,plot_goes=True,axvlines=None,**kwargs):
         if self.datasets is None:
             return
 
@@ -373,9 +414,9 @@ class ncLoader(object):
                         xlim_1      = pd.Timedelta(hours=xlim[1]) + self.sTime
                         xlim        = (xlim_0,xlim_1)
 
-                stat    = data_da.attrs.get('stat')
-                pdct    = pdict.get(stat,{})
-                log_z   = pdct.get('log_z',True)
+                stat        = data_da.attrs.get('stat')
+                pdct        = pdict.get(stat,{})
+                log_z       = pdct.get('log_z',True)
 
                 freqs       = np.sort(data_da['freq_MHz'])[::-1]
 
@@ -387,14 +428,24 @@ class ncLoader(object):
                 if plot_goes:
                     ny += 1
 
-                fig     = plt.figure(figsize=(30,4*ny))
+                fig         = plt.figure(figsize=(33,4*ny))
+                col_0       = 0
+                col_0_span  = 30
+                col_1       = 36
+                col_1_span  = 65
+
+#                fig         = plt.figure(figsize=(30,4*ny))
+#                col_0       = 0
+#                col_0_span  = 30
+#                col_1       = 35
+#                col_1_span  = 65
 
                 axs_to_adjust   = []
 
                 pinx = -1
                 if plot_kpsymh:
                     pinx    += 1
-                    ax      = plt.subplot2grid((ny,nx),(pinx,35),colspan=65)
+                    ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
 
@@ -402,29 +453,35 @@ class ncLoader(object):
                                         kp_markersize=10,dst_lw=2,dst_param='SYM-H')
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
+                    plot_axv(axvlines,omni_axs[0],color='k',label_time=True)
+                    for ax in omni_axs:
+                        self._format_timeticklabels(ax,xlim)
                     axs_to_adjust   += omni_axs
 
                 ######################################## 
                 if plot_goes:
                     goeser  = Goeser(self.sTime,self.eTime)
                     pinx    +=1 
-                    ax      = plt.subplot2grid((ny,nx),(pinx,35),colspan=65)
+                    ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     goeser.plot(ax)
                     ax.set_xlim(xlim)
+                    plot_axv(axvlines,ax,color='k')
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
+                    self._format_timeticklabels(ax,xlim)
                 
                 map_sum         = 0
                 for inx,freq in enumerate(freqs):
                     plt_row = inx+pinx+1
 
                     # Plot Map #############################
-                    ax = plt.subplot2grid((ny,nx),(plt_row,0),projection=ccrs.PlateCarree(),colspan=30)
+                    ax = plt.subplot2grid((ny,nx),(plt_row,col_0),projection=ccrs.PlateCarree(),colspan=col_0_span)
 
                     ax.coastlines(zorder=10,color='w')
                     ax.plot(np.arange(10))
                     map_data    = map_da.sel(freq_MHz=freq).copy()
+                    map_data.name   = label_dict.get(map_da.name,map_da.name)
                     tf          = map_data < 1
                     map_n       = int(np.sum(map_data))
                     map_sum     += map_n
@@ -454,9 +511,11 @@ class ncLoader(object):
                         ax.set_ylim(lat_lim)
 
                     # Plot Time Series ##################### 
-                    ax      = plt.subplot2grid((ny,nx),(plt_row,35),colspan=65)
+                    ax      = plt.subplot2grid((ny,nx),(plt_row,col_1),colspan=col_1_span)
                     plot_letter(plt_row,ax)
                     data    = data_da.sel(freq_MHz=freq).copy()
+
+                    data.name   = label_dict.get(data_da.name,data_da.name)
 
                     if log_z:
                         tf          = data < 1.
@@ -464,19 +523,19 @@ class ncLoader(object):
                         data.values[tf] = 0
                         data.name   = 'log({})'.format(data.name)
 
-                    cbar_kwargs = {'pad':0.080}
+                    if plot_sza:
+                        cbar_kwargs = {'pad':0.080}
+                    else:
+                        cbar_kwargs = {}
+
                     robust_dict = self.kwargs.get('robust_dict',{})
                     robust      = robust_dict.get(freq,True)
-                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,
-                            cbar_kwargs=cbar_kwargs)
-#                    result      = data.plot(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
+                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,cbar_kwargs=cbar_kwargs)
+#                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
 
                     if plot_sza:
                         self.sza.plot(group,ax)
 
-                    for tl in ax.get_xticklabels():
-                        tl.set_rotation(10)
-                    
                     xlbl    = ax.get_xlabel()
                     if xlbl == 'ut_hrs':
                         ax.set_xlabel('Date Time [UT]')
@@ -498,9 +557,12 @@ class ncLoader(object):
                     ax.text(-0.11,0.5,label,transform=ax.transAxes,va='center',
                             rotation=90,fontdict={'weight':'bold','size':30})
 
+
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
+                    plot_axv(axvlines,ax,color='w')
                     ax.tick_params(**tick_params)
+                    self._format_timeticklabels(ax,xlim)
                     hist_ax = ax
 
                 # Place Information in Upper Left Corner of Figure

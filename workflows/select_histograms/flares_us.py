@@ -138,7 +138,7 @@ class HamDataSet(object):
 
 if __name__ == '__main__':
 
-    filter_region   = 'Europe'
+    filter_region   = 'US'
     run_name        = 'quiet_baseline_{!s}'.format(filter_region)
     base_dir        = 'data/histograms'
 
