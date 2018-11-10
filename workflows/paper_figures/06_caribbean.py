@@ -284,6 +284,15 @@ def make_histogram_from_dataframe(df: pd.DataFrame, ax: matplotlib.axes.Axes, ti
 
     return ret_dct
 
+def format_timeticklabels(ax):
+    fmt = '%d %b'
+    if fmt is not None:
+        xtls    = []
+        for xtk in ax.get_xticks():
+            xtkd    = matplotlib.dates.num2date(xtk)
+            xtls.append(xtkd.strftime(fmt))
+        ax.set_xticklabels(xtls)
+
 def plot_on_map(ax,frame,param='mids',cparam=None,box=None,lout=None):
     if param == 'mids':
         xx_param    = 'md_long'
@@ -470,6 +479,10 @@ def make_figure(sTime,eTime,xkey='occurred',
     """
 
     mark_times  = []
+    mark_times.append({'val':datetime.datetime(2017,9,7,21),'label':'2100'})
+#    mark_times.append({'val':datetime.datetime(2017,9,9,14),'label':'1400'})
+
+
     if layout is None:
         lout = layouts.get('default')
     else:
@@ -822,21 +835,23 @@ def make_figure(sTime,eTime,xkey='occurred',
         return hist_maxes
 
     # Mark flare times with a vertical line on each axis.
-    for axd in ts_axs:
+    for ax_inx, axd in enumerate(ts_axs):
         ax      = axd.get('ax')
         prp     = axd.get('axvline_props',{})
         color   = prp.get('color','k')
-        lw      = prp.get('lw',2)
-        ls      = prp.get('ls','--')
+        lw      = prp.get('lw',4)
+        ls      = prp.get('ls',':')
         for mtd in mark_times:
             mark_time   = mtd.get('val')
             label       = mtd.get('label')
 
             ax.axvline(mark_time,color=color,lw=lw,ls=ls)
-            if flare_labels:
+            if ax_inx == 0:
                 trans   = matplotlib.transforms.blended_transform_factory(ax.transData, ax.transAxes)
                 fsize   = lout.get('flarelabel_size',22)
                 ax.text(mark_time,1,label,rotation=90,va='top',ha='right',transform=trans,fontdict={'weight':'bold','size':fsize},color=color)
+
+        format_timeticklabels(ax)
 
     # Place Information in Upper Left Corner of Figure
     lines   = []

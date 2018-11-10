@@ -67,16 +67,23 @@ def plot_letter(inx,ax):
     ax.text(-0.095,0.875,txt,fontdict=fontdict,transform=ax.transAxes,ha='center')
 
 
+def plot_axvspans(axvspans,ax):
+    if axvspans is None:
+        return
+
+    for axv in axvspans:
+        ax.axvspan(*axv,color='0.8',zorder=-10,alpha=0.5)
+
 def plot_axv(axvlines,ax,label_time=False,**kwargs):
     if axvlines is None:
         return
 
     for axv in axvlines:
-        ax.axvline(axv,ls=':',lw=3,**kwargs)
+        ax.axvline(axv,ls=':',lw=4,**kwargs)
         txt = axv.strftime('%H%M')
         trans = mpl.transforms.blended_transform_factory(ax.transData,ax.transAxes)
         if label_time:
-            ax.text(axv,0.98,txt,rotation=90,fontdict={'weight':'bold','size':'x-large'},transform=trans,va='top',ha='left')
+            ax.text(axv,0.98,txt,rotation=90,fontdict={'weight':'bold','size':'x-large'},transform=trans,va='top',ha='right')
 
 class SrcCounts(object):
     def __init__(self,xdct):
@@ -402,7 +409,7 @@ class ncLoader(object):
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,axvlines=None,time_format={},**kwargs):
+            plot_kpsymh=True,plot_goes=True,axvlines=None,axvlines_kw={},axvspans=None,time_format={},**kwargs):
         if self.datasets is None:
             return
 
@@ -411,6 +418,8 @@ class ncLoader(object):
 
         self.time_format    = time_format
         xlim_in = xlim
+        if axvlines_kw is None:
+            axvlines_kw = {}
 
         for group,ds in self.datasets['time_series'].items():
             map_da  = self.datasets['map'][group]['spot_density']
@@ -483,7 +492,10 @@ class ncLoader(object):
                                         kp_markersize=10,dst_lw=2,dst_param='SYM-H')
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
-                    plot_axv(axvlines,omni_axs[0],color='k',label_time=True)
+
+                    label_time  = axvlines_kw.get('label_time',True)
+                    plot_axv(axvlines,omni_axs[0],color='k',label_time=label_time)
+                    plot_axvspans(axvspans,omni_axs[0])
                     for ax in omni_axs:
                         self._format_timeticklabels(ax)
                         ax.set_xlabel('')
@@ -497,6 +509,7 @@ class ncLoader(object):
                     goeser.plot(ax)
                     ax.set_xlim(xlim)
                     plot_axv(axvlines,ax,color='k')
+                    plot_axvspans(axvspans,ax)
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
@@ -589,7 +602,11 @@ class ncLoader(object):
 
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
-                    plot_axv(axvlines,ax,color='w')
+                    if result.cmap.name == 'viridis':
+                        color = 'w'
+                    else:
+                        color = 'k'
+                    plot_axv(axvlines,ax,color=color)
                     ax.tick_params(**tick_params)
                     self._format_timeticklabels(ax)
                     if inx != len(freqs)-1:

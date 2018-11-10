@@ -91,6 +91,9 @@ class HamDataSet(object):
         rd['band_keys']             = self.rd.get('band_keys')
         rd['plot_region']           = self.rd.get('filter_region')
         rd['time_format']           = self.rd.get('time_format')
+        rd['axvlines']              = self.rd.get('axvlines')
+        rd['axvlines_kw']           = self.rd.get('axvlines_kw')
+        rd['axvspans']              = self.rd.get('axvspans')
         lib.visualize_histograms.main(rd)
 #        lib.visualize_histograms.plot_dailies(rd)
 
@@ -180,6 +183,21 @@ if __name__ == '__main__':
     rd['eTime']         = datetime.datetime(2017,9,14)
     rd['plot_sza']      = False
     rd['time_format']   = {'format':'%d %b','rotation':0,'ha':'center','label':'Date [UT]'}
+
+    axv         = []
+    axvspans    = []
+    axv.append(datetime.datetime(2017,9,7,21))
+#    axv.append(datetime.datetime(2017,9,9))
+    axv.append(datetime.datetime(2017,9,9,14))
+    axvspans.append((axv[0],axv[1]))
+
+#    axv.append(datetime.datetime(2017,9,12,18))
+#    axv.append(datetime.datetime(2017,9,13,3))
+#    axvspans.append((axv[2],axv[3]))
+
+    rd['axvlines']      = axv
+#    rd['axvlines_kw']   = {'label_time':False}
+    rd['axvspans']      = axvspans
 
     lib.gl.prep_output({0:rd['data_dir']},clear=True)
     lib.gl.prep_output({0:rd['plot_dir']},clear=True)
