@@ -290,6 +290,11 @@ class SymH():
         fpath   = os.path.join(output_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
 
+    def get_closest(self,dt):
+        df  = self.df
+        inx = np.argmin(np.abs(df.index - dt))
+        return df.iloc[inx]
+
 def main():
     years = np.arange(2001,2014)
     symh = SymH(years=years,output_dir=output_dir)

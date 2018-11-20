@@ -268,7 +268,7 @@ class StackPlot(object):
         title = 'TEC - {!s} ({!s})'.format(region,win_label)
         ax.set_title(title)
 
-        ax.set_ylabel('Mean TEC')
+        ax.set_ylabel('Mean TEC [TECU]')
         ax.set_xlim(self.sTime,self.eTime)
         ax.grid()
         self.ts_axs.append(ax)

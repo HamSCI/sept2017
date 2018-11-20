@@ -479,9 +479,12 @@ def make_figure(sTime,eTime,xkey='occurred',
     """
 
     mark_times  = []
-    mark_times.append({'val':datetime.datetime(2017,9,7,21),'label':'2100'})
-#    mark_times.append({'val':datetime.datetime(2017,9,9,14),'label':'1400'})
+    mark_times.append({'val':datetime.datetime(2017,9,6,8,57)  ,'label':'0857'})
+    mark_times.append({'val':datetime.datetime(2017,9,7,14,36) ,'label':'1436'})
+    mark_times.append({'val':datetime.datetime(2017,9,7,21)    ,'label':'2100'})
+    mark_times.append({'val':datetime.datetime(2017,9,10,15,35),'label':'1535'})
 
+    mark_times.append({'val':datetime.datetime(2017,9,6,11,53) ,'label':'1153'})
 
     if layout is None:
         lout = layouts.get('default')

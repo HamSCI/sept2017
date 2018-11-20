@@ -266,3 +266,8 @@ class Omni():
                 xtl.set_visible(False)
         plt.sca(ax)
         return [ax,ax_1]
+
+    def get_closest(self,dt):
+        df  = self.df
+        inx = np.argmin(np.abs(df.index - dt))
+        return df.iloc[inx]

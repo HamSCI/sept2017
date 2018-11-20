@@ -16,10 +16,6 @@ mpl.rcParams['font.size'] = 13
 
 geo_env     = lib.GeospaceEnv()
 
-#Helper functions for getting information for paper
-get_kp      = geo_env.omni.get_closest
-get_symh    = geo_env.symh.get_closest
-
 class HamDataSet(object):
     def __init__(self,run_dct={}):
         run_dct['params']               = run_dct.get('params',['spot_density'])
@@ -178,35 +174,30 @@ if __name__ == '__main__':
 #    baseline.stats()
 #    baseline.visualize()
 
-    run_name    = 'geomag_storm_global'
+    run_name    = 'geomag_storm_global_long'
     rd  = {}
     rd['data_dir_0']    = baseline.rd.get('data_dir_0')
     rd['data_dir']      = os.path.join(base_dir,run_name)
     rd['plot_dir']      = os.path.join('output/galleries/histograms',run_name)
-    rd['sTime']         = datetime.datetime(2017,9,6)
-    rd['eTime']         = datetime.datetime(2017,9,12)
+    rd['sTime']         = datetime.datetime(2017,9,5)
+    rd['eTime']         = datetime.datetime(2017,9,14)
     rd['plot_sza']      = False
     rd['time_format']   = {'format':'%d %b','rotation':0,'ha':'center','label':'Date [UT]'}
 
-#    axv         = []
-#    axvspans    = []
-#    axv.append(datetime.datetime(2017,9,7,21))
-#    axv.append(datetime.datetime(2017,9,9,14))
-#    axvspans.append((axv[0],axv[1]))
-#
-##    axv.append(datetime.datetime(2017,9,12,18))
-##    axv.append(datetime.datetime(2017,9,13,3))
-##    axvspans.append((axv[2],axv[3]))
-#
-#    rd['axvlines']      = axv
-##    rd['axvlines_kw']   = {'label_time':False}
-#    rd['axvspans']      = axvspans
-
     axv         = []
+    axvspans    = []
     axv.append(datetime.datetime(2017,9,7,21))
-    axv.append(datetime.datetime(2017,9,9))
+#    axv.append(datetime.datetime(2017,9,9))
     axv.append(datetime.datetime(2017,9,9,14))
+    axvspans.append((axv[0],axv[1]))
+
+#    axv.append(datetime.datetime(2017,9,12,18))
+#    axv.append(datetime.datetime(2017,9,13,3))
+#    axvspans.append((axv[2],axv[3]))
+
     rd['axvlines']      = axv
+#    rd['axvlines_kw']   = {'label_time':False}
+    rd['axvspans']      = axvspans
 
     lib.gl.prep_output({0:rd['data_dir']},clear=True)
     lib.gl.prep_output({0:rd['plot_dir']},clear=True)

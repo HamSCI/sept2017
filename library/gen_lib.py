@@ -102,6 +102,11 @@ tmp['lon_lim']  = ( -130.,-60.)
 tmp['lat_lim']  = (  0., 40.)
 regions['Mexico']    = tmp
 
+tmp     = {}
+tmp['lon_lim']  = (-180.,180.)
+tmp['lat_lim']  = ( 0., 90.)
+regions['NH']    = tmp
+
 sources     = OrderedDict()
 tmp = {}
 tmp['name'] = 'DXCluster'
