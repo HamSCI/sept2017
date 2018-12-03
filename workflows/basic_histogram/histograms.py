@@ -7,15 +7,15 @@ import datetime
 import library as lib
 
 #run_name    = 'Europe'
-run_name    = 'US'
+run_name    = 'World'
 data_dir    = os.path.join('data/histograms',run_name)
 plot_dir    = os.path.join('output/galleries/histograms',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs','slt_mid']
-sTime       = datetime.datetime(2017,9,6,6)
-eTime       = datetime.datetime(2017,9,6,18)
+sTime       = datetime.datetime(2017,7,1)
+eTime       = datetime.datetime(2017,7,2)
 region      = run_name
-rgc_lim     = (0, 3000)
+rgc_lim     = (0, 10000)
 
 geo_env     = lib.GeospaceEnv()
 
@@ -26,7 +26,7 @@ rd['eDate']                 = eTime
 rd['params']                = params
 rd['xkeys']                 = xkeys
 rd['rgc_lim']               = rgc_lim
-rd['filter_region']         = region
+rd['filter_region']         = run_name
 rd['filter_region_kind']    = 'mids'
 rd['xb_size_min']           = 10.
 rd['yb_size_km']            = 250.
