@@ -174,7 +174,7 @@ def cc255(color):
     return tuple(trip)
 
 class BandData(object):
-    def __init__(self,bands=None,cmap='HFRadio',vmin=0.,vmax=30.):
+    def __init__(self,bands=None,cmap='HFRadio',vmin=0.,vmax=30.,cb_safe=False):
         """
         bands:  None for all HF contest bands.
                 List to select bands (i.e. [7,14])
@@ -183,6 +183,9 @@ class BandData(object):
             self.cmap   = self.hf_cmap(vmin=vmin,vmax=vmax)
         else:
             self.cmap   = matplotlib.cm.get_cmap(cmap)
+
+        self.cb_safe = cb_safe
+        self.__cb_safe()
 
         self.norm   = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
@@ -212,7 +215,10 @@ class BandData(object):
             tmp['name']         = '{!s} m'.format(meters)
             tmp['freq']         = freq
             tmp['freq_name']    = '{:g} MHz'.format(freq)
-            tmp['color']        = self.get_rgba(freq)
+            if self.cb_safe:
+                tmp['color']        = self.cb_safe_dct.get(freq)
+            else:
+                tmp['color']        = self.get_rgba(freq)
             dct[key]            = tmp
         self.band_dict          = dct
 
@@ -252,8 +258,29 @@ class BandData(object):
         fc[21.0] = cc255('orange')
         fc[28.0] = cc255('red')
         fc[30.0] = cc255('red')
+
         cmap    = cdict_to_cmap(fc,name=name,vmin=vmin,vmax=vmax)
         return cmap
+
+    def __cb_safe(self):
+        """Color blind safe"""
+        reddish_purple  = np.array((204,121,167))/255.
+        vermillion      = np.array((213, 94,  0))/255.
+        blue            = np.array((  0,114,178))/255.
+        yellow          = np.array((240,228, 65))/255.
+        bluish_green    = np.array((  0,158,115))/255.
+        sky_blue        = np.array(( 86,180,233))/255.
+        orange          = np.array((230,159,  0))/255.
+        black           = np.array((  0,  0,  0))/255.
+
+        fc = {}
+        fc[ 1.8] = blue          
+        fc[ 3.5] = sky_blue
+        fc[ 7.0] = vermillion    
+        fc[14.0] = bluish_green  
+        fc[21.0] = orange        
+        fc[28.0] = reddish_purple
+        self.cb_safe_dct    = fc
 
 def cdict_to_cmap(cdict,name='CustomCMAP',vmin=0.,vmax=30.):
 	norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
@@ -391,7 +418,9 @@ def band_legend(ax,loc='lower center',markerscale=0.5,prop={'size':10},
     if ncol is None:
         ncol = len(labels)
     
-    legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
+    legend = ax.legend(handles,labels,ncol=ncol,loc=loc,markerscale=markerscale,prop=prop,
+            title=title,bbox_to_anchor=bbox_to_anchor,scatterpoints=1)
+    legend.set_zorder(500)
     plt.close(fig_tmp)
     return legend
 
