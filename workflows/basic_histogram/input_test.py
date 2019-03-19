@@ -1,0 +1,2 @@
+print(mon)
+print(day)

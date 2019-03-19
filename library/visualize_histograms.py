@@ -468,7 +468,7 @@ class ncLoader(object):
                     ny += 1
 
 #                fig         = plt.figure(figsize=(33,4*ny))
-                fig         = plt.figure(figsize=(50,4*ny))
+                fig         = plt.figure(figsize=(35,4*ny))
                 col_0       = 0
                 col_0_span  = 30
                 col_1       = 36
