@@ -468,7 +468,7 @@ class ncLoader(object):
                     ny += 1
 
 #                fig         = plt.figure(figsize=(33,4*ny))
-                fig         = plt.figure(figsize=(50,4*ny))
+                fig         = plt.figure(figsize=(35,4*ny))
                 col_0       = 0
                 col_0_span  = 30
                 col_1       = 36
@@ -576,8 +576,8 @@ class ncLoader(object):
 
                     robust_dict = self.kwargs.get('robust_dict',{})
                     robust      = robust_dict.get(freq,True)
-                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,cbar_kwargs=cbar_kwargs)
-#                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
+#                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,cbar_kwargs=cbar_kwargs)
+                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
 
                     if plot_sza:
                         self.sza.plot(group,ax)

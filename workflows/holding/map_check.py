@@ -61,6 +61,7 @@ def plot_map(maplim_region='World',output_dir='output',plot_goes=False,box=None)
     fname   = 'map-{!s}.png'.format(maplim_region)
     fpath   = os.path.join(output_dir,fname)
     fig.savefig(fpath,bbox_inches='tight')
+    print(fpath)
     plt.close(fig)
 
 if __name__ == '__main__':
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     run_dcts = []
     rd = {}
 #    rd['maplim_region'] = 'US'
-    rd['box']           = 'NH'
+    rd['box']           = 'BKS'
     rd['plot_goes']     = True
     rd['output_dir']    = output_dir
     run_dcts.append(rd)

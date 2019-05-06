@@ -79,6 +79,7 @@ def main(run_dct):
     if strip_time(sDate) != strip_time(eDate):
         dates   = dates[:-1]
 
+    print('Calculating Ham Radio histograms...')
     for dt in tqdm.tqdm(dates):
         nc_name = dt.strftime('%Y%m%d') + '.data.nc'
         nc_path = os.path.join(ncs_path,nc_name)

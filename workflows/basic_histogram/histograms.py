@@ -60,10 +60,10 @@ rd['eTime']                 = eTime
 rd['plot_region']           = region
 rd['geospace_env']          = geo_env
 rd['band_keys']             = [28, 21, 14, 7]
-axv = []
-axv.append(datetime.datetime(2017,9,6, 8,57))
-axv.append(datetime.datetime(2017,9,6,11,53))
-rd['axvlines']              = axv
+#axv = []
+#axv.append(datetime.datetime(2017,9,6, 8,57))
+#axv.append(datetime.datetime(2017,9,6,11,53))
+#rd['axvlines']              = axv
 lib.visualize_histograms.main(rd)
 import ipdb; ipdb.set_trace()
 lib.visualize_histograms.plot_dailies(rd)
